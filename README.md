@@ -1,0 +1,61 @@
+# iNat data
+
+## Get the data
+
+Download raw data from S3 (updated monthly?):
+
+    aws s3 cp s3://inaturalist-open-data/taxa.csv.gz . --no-sign-request
+    aws s3 cp s3://inaturalist-open-data/observations.csv.gz . --no-sign-request
+    aws s3 cp s3://inaturalist-open-data/photos.csv.gz . --no-sign-request
+
+More information about the data here:
+https://github.com/inaturalist/inaturalist-open-data
+
+Peek at the raw data from the command line without decompressing like this:
+
+    gzcat taxa.csv.gz | less
+
+USDA data
+
+    # Download the complete database
+    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/plantlst.txt
+
+    # State distribution data
+    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/statedownload.txt
+
+    # Characteristics data
+    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/characteristics.txt
+
+
+    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/Massachusetts_NRCS_csv.txt
+
+
+
+# Notes
+
+On 1/1/2026
+
+Plantae
+
+48460 is the root of the tree
+47126 is Plantae kingdom
+
+The ancestry prefix for all plants should be "48460/47126/"
+
+taxa csv has 1,615,611 rows
+
+416,341 are plants
+
+
+gzcat observations.csv.gz| wc -l
+ 226,862,366
+
+gzcat photos.csv.gz| wc -l      
+ 401,313,288
+
+
+
+47126	48460	70	kingdom	Plantae	true
+
+
+https://github.com/inaturalist/inaturalist-open-data
