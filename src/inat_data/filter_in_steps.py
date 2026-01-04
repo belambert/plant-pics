@@ -1,6 +1,6 @@
 import polars as pl
 
-from inat_data.filter import lazy_len
+from inat_data.filter_observations import lazy_len
 
 
 def main():

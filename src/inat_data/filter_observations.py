@@ -33,11 +33,15 @@ def main():
             low_memory=True,
         )
         .filter(pl.col("quality_grade") == "research")
+        .filter((pl.col("latitude") > 41) & (pl.col("latitude") < 45))
+        .filter((pl.col("longitude") > -73) & (pl.col("longitude") < -70))
         # .select(["taxon_id", "observation_uuid"])
     )
     plant_obs = obs_df.join(plant_taxa, on="taxon_id", how="inner")
 
-    plant_obs.sink_csv("data/plant_observations.tsv", separator="\t",engine="streaming")
+    plant_obs.sink_csv(
+        "data/plant_observations.tsv", separator="\t", engine="streaming"
+    )
 
 
 if __name__ == "__main__":

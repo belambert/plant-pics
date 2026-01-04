@@ -15,7 +15,18 @@ Peek at the raw data from the command line without decompressing like this:
 
     gzcat taxa.csv.gz | less
 
+
+Also need:
+
+    wget https://www.inaturalist.org/taxa/inaturalist-taxonomy.dwca.zip
+
+Mass list...:
+
+    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/Massachusetts_NRCS_csv.txt
+
 USDA data
+
+    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt
 
     # Download the complete database
     wget https://plants.usda.gov/assets/docs/CompletePLANTSList/plantlst.txt
