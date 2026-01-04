@@ -46,10 +46,8 @@ def main():
         .filter((pl.col("width") > 1000) & (pl.col("height") > 1000))
         .filter(pl.col("position") == 1)
     )
-    # photos_df = photos_df.select(["observation_uuid", "photo_id", "extension"])
-    # plant_pics = photos_df.select(
-    #     ["taxon_id", "observation_uuid", "name", "photo_id", "extension"]
-    # )
+    columns = ["taxon_id", "observation_uuid", "name", "photo_id", "extension"]
+    plant_pics = photos_df.select(columns)
     plant_pics = (
         plant_obs.join(photos_df, on="observation_uuid", how="inner")
         .group_by("taxon_id")
