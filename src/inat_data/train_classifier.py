@@ -1,5 +1,6 @@
 import os
 from collections import Counter
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -61,7 +62,7 @@ def main(
         help="Number of training epochs",
     ),
     batch_size: int = typer.Option(
-        32,
+        64,
         "--batch-size",
         "-b",
         help="Batch size for training",
@@ -260,18 +261,18 @@ def train_vit_classifier(
     image_processor = AutoImageProcessor.from_pretrained(model_name)
     train_transforms, val_transforms = create_transforms(image_processor)
 
-    # Preprocess datasets
+    # Preprocess datasets using partial to make them picklable
     print("\nPreprocessing datasets...")
     dataset["train"].set_transform(
-        lambda examples: preprocess_train(examples, train_transforms, label2id)
+        partial(preprocess_train, transform=train_transforms, label2id=label2id)
     )
 
     dataset["val"].set_transform(
-        lambda examples: preprocess_val(examples, val_transforms, label2id)
+        partial(preprocess_val, transform=val_transforms, label2id=label2id)
     )
 
     dataset["test"].set_transform(
-        lambda examples: preprocess_val(examples, val_transforms, label2id)
+        partial(preprocess_val, transform=val_transforms, label2id=label2id)
     )
 
     # Load model
@@ -292,8 +293,20 @@ def train_vit_classifier(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Check if using MPS device (Apple Silicon)
+    # Check device type and configure accordingly
     use_mps = torch.backends.mps.is_available()
+    use_cuda = torch.cuda.is_available()
+
+    # Configure data loading workers based on device
+    num_workers = 0 if use_mps else 4
+
+    # Enable mixed precision training on CUDA
+    if use_cuda:
+        fp16 = not torch.cuda.is_bf16_supported()
+        bf16 = torch.cuda.is_bf16_supported()
+    else:
+        fp16 = False
+        bf16 = False
 
     # Training arguments
     training_args = TrainingArguments(
@@ -312,8 +325,10 @@ def train_vit_classifier(
         remove_unused_columns=False,
         push_to_hub=False,
         report_to="wandb" if use_wandb else None,
-        dataloader_num_workers=0,  # Set to 0 to avoid pickling issues with transforms
-        dataloader_pin_memory=False if use_mps else True,  # Disable pin_memory on MPS
+        dataloader_num_workers=num_workers,
+        dataloader_pin_memory=False if use_mps else True,
+        fp16=fp16,
+        bf16=bf16,
     )
 
     # Initialize trainer
@@ -332,6 +347,11 @@ def train_vit_classifier(
     print(f"  Batch size: {batch_size}")
     print(f"  Learning rate: {learning_rate}")
     print(f"  Device: {get_device()}")
+    print(f"  Data workers: {num_workers}")
+    if fp16:
+        print(f"  Mixed precision: fp16")
+    elif bf16:
+        print(f"  Mixed precision: bf16")
 
     train_result = trainer.train()
 
@@ -405,27 +425,23 @@ def create_transforms(image_processor):
     return train_transforms, val_transforms
 
 
-def preprocess_train(examples, transform, label2id):
+def preprocess_train(examples, *, transform, label2id):
     """Apply transformations to training examples."""
     examples["pixel_values"] = [
         transform(image.convert("RGB")) for image in examples["image"]
     ]
-    # Convert class labels to integer IDs
     examples["labels"] = [label2id[cls] for cls in examples["class"]]
-    # Remove raw images to avoid collator errors
     del examples["image"]
     del examples["class"]
     return examples
 
 
-def preprocess_val(examples, transform, label2id):
+def preprocess_val(examples, *, transform, label2id):
     """Apply transformations to validation examples."""
     examples["pixel_values"] = [
         transform(image.convert("RGB")) for image in examples["image"]
     ]
-    # Convert class labels to integer IDs
     examples["labels"] = [label2id[cls] for cls in examples["class"]]
-    # Remove raw images to avoid collator errors
     del examples["image"]
     del examples["class"]
     return examples
