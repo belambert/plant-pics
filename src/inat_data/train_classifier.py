@@ -110,6 +110,17 @@ def get_device():
         return "cpu"
 
 
+def print_model_parameters(model):
+    """Print the number of parameters in the model."""
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"\nModel Parameters:")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params:,}")
+    print(f"  Non-trainable parameters: {total_params - trainable_params:,}")
+
+
 def print_class_distribution(dataset, labels):
     """Print table showing class distribution across train/val/test splits."""
     console = Console()
@@ -272,6 +283,9 @@ def train_vit_classifier(
         label2id=label2id,
         ignore_mismatched_sizes=True,
     )
+
+    # Print model parameter counts
+    print_model_parameters(model)
 
     # Create output directory
     output_path = Path(output_dir)
