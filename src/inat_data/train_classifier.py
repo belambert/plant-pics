@@ -1,10 +1,14 @@
 import os
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
 import torch
 import typer
 from datasets import load_dataset
+from rich.console import Console
+from rich.table import Table
+from sklearn.metrics import classification_report, precision_recall_fscore_support
 from torchvision.transforms import (
     CenterCrop,
     Compose,
@@ -67,11 +71,6 @@ def main(
         "-lr",
         help="Learning rate for optimizer",
     ),
-    save_steps: int = typer.Option(
-        500,
-        "--save-steps",
-        help="Save checkpoint every N steps",
-    ),
     no_wandb: bool = typer.Option(
         False,
         "--no-wandb",
@@ -96,10 +95,56 @@ def main(
         num_epochs=epochs,
         batch_size=batch_size,
         learning_rate=learning_rate,
-        save_steps=save_steps,
         use_wandb=not no_wandb,
         limit=limit,
     )
+
+
+def get_device():
+    """Detect which device (cuda/mps/cpu) is being used."""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
+
+
+def print_class_distribution(dataset, labels):
+    """Print table showing class distribution across train/val/test splits."""
+    console = Console()
+    table = Table(
+        title="\nClass Distribution", show_header=True, header_style="bold magenta"
+    )
+    table.add_column("Class", style="cyan")
+    table.add_column("Train", justify="right", style="green")
+    table.add_column("Val", justify="right", style="yellow")
+    table.add_column("Test", justify="right", style="blue")
+    table.add_column("Total", justify="right", style="bold")
+
+    train_counts = Counter(dataset["train"]["class"])
+    val_counts = Counter(dataset["val"]["class"])
+    test_counts = Counter(dataset["test"]["class"])
+
+    for label in sorted(labels):
+        t, v, te = (
+            train_counts.get(label, 0),
+            val_counts.get(label, 0),
+            test_counts.get(label, 0),
+        )
+        table.add_row(label, str(t), str(v), str(te), str(t + v + te))
+
+    table.add_section()
+    table.add_row(
+        "TOTAL",
+        str(len(dataset["train"])),
+        str(len(dataset["val"])),
+        str(len(dataset["test"])),
+        str(len(dataset["train"]) + len(dataset["val"]) + len(dataset["test"])),
+        style="bold",
+    )
+
+    console.print(table)
 
 
 def train_vit_classifier(
@@ -108,7 +153,6 @@ def train_vit_classifier(
     num_epochs: int = 10,
     batch_size: int = 32,
     learning_rate: float = 2e-5,
-    save_steps: int = 500,
     use_wandb: bool = True,
     limit: int = None,
 ):
@@ -121,7 +165,6 @@ def train_vit_classifier(
         num_epochs: Number of training epochs
         batch_size: Batch size for training
         learning_rate: Learning rate for optimizer
-        save_steps: Save checkpoint every N steps
         use_wandb: Whether to use Weights & Biases for logging
         limit: Limit total dataset size before splitting (for quick testing)
     """
@@ -197,6 +240,9 @@ def train_vit_classifier(
     label2id = {label: i for i, label in enumerate(labels)}
     id2label = {i: label for i, label in enumerate(labels)}
 
+    # Print class distribution table
+    print_class_distribution(dataset, labels)
+
     # Load image processor and create transforms
     print(f"\nLoading pretrained model: {model_name}")
     image_processor = AutoImageProcessor.from_pretrained(model_name)
@@ -231,15 +277,18 @@ def train_vit_classifier(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
+    # Check if using MPS device (Apple Silicon)
+    use_mps = torch.backends.mps.is_available()
+
     # Training arguments
     training_args = TrainingArguments(
         output_dir=output_dir,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         eval_strategy="steps",
-        eval_steps=save_steps,
+        eval_steps=0.05,  # Evaluate every 5% of training
         save_strategy="steps",
-        save_steps=save_steps,
+        save_steps=0.05,  # Save every 5% of training
         learning_rate=learning_rate,
         num_train_epochs=num_epochs,
         logging_steps=100,
@@ -249,10 +298,12 @@ def train_vit_classifier(
         push_to_hub=False,
         report_to="wandb" if use_wandb else None,
         dataloader_num_workers=0,  # Set to 0 to avoid pickling issues with transforms
+        dataloader_pin_memory=False if use_mps else True,  # Disable pin_memory on MPS
     )
 
     # Initialize trainer
     print("\nInitializing trainer...")
+    compute_metrics = compute_metrics_factory(id2label, use_wandb=use_wandb)
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -265,7 +316,7 @@ def train_vit_classifier(
     print(f"\nStarting training for {num_epochs} epochs...")
     print(f"  Batch size: {batch_size}")
     print(f"  Learning rate: {learning_rate}")
-    print(f"  Device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
+    print(f"  Device: {get_device()}")
 
     train_result = trainer.train()
 
@@ -365,12 +416,56 @@ def preprocess_val(examples, transform, label2id):
     return examples
 
 
-def compute_metrics(eval_pred):
-    """Compute accuracy metrics."""
-    predictions, labels = eval_pred
-    predictions = np.argmax(predictions, axis=1)
-    accuracy = (predictions == labels).mean()
-    return {"accuracy": accuracy}
+def compute_metrics_factory(id2label, use_wandb=True):
+    """
+    Create a compute_metrics function with access to label mappings.
+
+    Args:
+        id2label: Dictionary mapping class IDs to class names
+        use_wandb: Whether to log per-class metrics to wandb
+
+    Returns:
+        compute_metrics function
+    """
+
+    def compute_metrics(eval_pred):
+        """Compute accuracy and per-class precision/recall metrics."""
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
+
+        # Overall accuracy
+        accuracy = (predictions == labels).mean()
+
+        # Per-class precision and recall
+        precision, recall, f1, support = precision_recall_fscore_support(
+            labels, predictions, average=None, zero_division=0
+        )
+
+        # Create metrics dict
+        metrics = {"accuracy": accuracy}
+
+        # Add per-class metrics
+        if use_wandb:
+            # Log per-class metrics to wandb
+            class_metrics = {}
+            for idx, (prec, rec, f1_score) in enumerate(zip(precision, recall, f1)):
+                class_name = id2label.get(idx, f"class_{idx}")
+                class_metrics[f"precision/{class_name}"] = prec
+                class_metrics[f"recall/{class_name}"] = rec
+                class_metrics[f"f1/{class_name}"] = f1_score
+
+            # Log to wandb
+            if wandb.run is not None:
+                wandb.log(class_metrics)
+
+        # Also compute macro averages
+        metrics["precision_macro"] = precision.mean()
+        metrics["recall_macro"] = recall.mean()
+        metrics["f1_macro"] = f1.mean()
+
+        return metrics
+
+    return compute_metrics
 
 
 if __name__ == "__main__":
