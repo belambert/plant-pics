@@ -1,5 +1,22 @@
 # iNat data
 
+So the full process would look something like this:
+- download the metadata files from inaturalist
+- do the filtering
+- get common names (need LM or LM API)
+- download images
+- (optional: do image classification)
+- package into a dataset
+
+
+Classification of 20k images at size "large" (2600 batches of 8)
+~3 hours on a100 = $15
+
+Do the classification on the smaller sized images.  Try thumb (100px) or
+small (240px).
+
+ 401,313,288 photos.csv
+
 ## Get the data
 
 Download raw data from S3 (updated monthly?):
