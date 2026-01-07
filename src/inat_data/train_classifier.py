@@ -48,7 +48,8 @@ def main(
         help="Directory to save the trained model",
     ),
     model_name: str = typer.Option(
-        "google/vit-base-patch16-224",  # or google/vit-base-patch16-224-in21k?
+        # or : google/vit-large-patch16-224-in21k
+        "google/vit-base-patch16-224-in21k",
         "--model",
         "-m",
         help="Pretrained ViT model to use",
