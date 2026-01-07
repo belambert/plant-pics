@@ -1,9 +1,10 @@
-import typer
-import polars as pl
-
 from pathlib import Path
 
+import polars as pl
+import typer
+
 app = typer.Typer()
+
 
 @app.command()
 def main(
@@ -20,7 +21,7 @@ def main(
 
     taxa = pl.scan_csv(taxa_file, separator="\t")
 
-    print("processing observations...") 
+    print("processing observations...")
     # this only keeps memory low if we give it the uncompressed version?
     obs_df = (
         pl.scan_csv(

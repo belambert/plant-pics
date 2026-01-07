@@ -1,17 +1,10 @@
 import os
 from pathlib import Path
 
-import typer
-import wandb
-from datasets import load_dataset
-from transformers import (
-    AutoImageProcessor,
-    AutoModelForImageClassification,
-    Trainer,
-    TrainingArguments,
-)
-import torch
 import numpy as np
+import torch
+import typer
+from datasets import load_dataset
 from torchvision.transforms import (
     CenterCrop,
     Compose,
@@ -21,7 +14,14 @@ from torchvision.transforms import (
     Resize,
     ToTensor,
 )
+from transformers import (
+    AutoImageProcessor,
+    AutoModelForImageClassification,
+    Trainer,
+    TrainingArguments,
+)
 
+import wandb
 
 # Weights & Biases configuration
 WANDB_PROJECT = "inat-vit-classifier"
@@ -44,7 +44,7 @@ def main(
         help="Directory to save the trained model",
     ),
     model_name: str = typer.Option(
-        "google/vit-base-patch16-224", # or google/vit-base-patch16-224-in21k?
+        "google/vit-base-patch16-224",  # or google/vit-base-patch16-224-in21k?
         "--model",
         "-m",
         help="Pretrained ViT model to use",
@@ -153,20 +153,24 @@ def train_vit_classifier(
     # Apply limit if specified
     if limit is not None:
         print(f"Limiting dataset to {limit} samples...")
-        dataset_shuffled = dataset_shuffled.select(range(min(limit, len(dataset_shuffled))))
+        dataset_shuffled = dataset_shuffled.select(
+            range(min(limit, len(dataset_shuffled)))
+        )
         print(f"  Limited samples: {len(dataset_shuffled)}")
 
-    print(f"\nSplitting dataset {TRAIN_SPLIT:.0%} train / {VAL_SPLIT:.0%} val / {TEST_SPLIT:.0%} test...")
+    print(
+        f"\nSplitting dataset {TRAIN_SPLIT:.0%} train / {VAL_SPLIT:.0%} val / {TEST_SPLIT:.0%} test..."
+    )
     # First split: separate out test set
     train_val_test = dataset_shuffled.train_test_split(
-        test_size=TEST_SPLIT,
-        seed=RANDOM_SEED
+        test_size=TEST_SPLIT, seed=RANDOM_SEED
     )
 
     # Second split: separate train and val from the remaining data
     train_val = train_val_test["train"].train_test_split(
-        test_size=VAL_SPLIT / (TRAIN_SPLIT + VAL_SPLIT),  # Adjust val size relative to remaining data
-        seed=RANDOM_SEED
+        test_size=VAL_SPLIT
+        / (TRAIN_SPLIT + VAL_SPLIT),  # Adjust val size relative to remaining data
+        seed=RANDOM_SEED,
     )
 
     # Create final dataset with train/val/test splits
@@ -279,14 +283,14 @@ def train_vit_classifier(
     test_results = trainer.evaluate(dataset["test"])
 
     # Print training summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Training Summary:")
     print(f"  Total training time: {train_result.metrics['train_runtime']:.2f}s")
     print(f"  Final training loss: {train_result.metrics['train_loss']:.4f}")
     print(f"  Best validation accuracy: {val_results['eval_accuracy']:.4f}")
     print(f"  Final test accuracy: {test_results['eval_accuracy']:.4f}")
     print(f"  Model saved to: {output_dir}")
-    print("="*60)
+    print("=" * 60)
 
     # Finish wandb run
     if use_wandb:
@@ -311,23 +315,26 @@ def create_transforms(image_processor):
     )
 
     normalize = Normalize(
-        mean=image_processor.image_mean,
-        std=image_processor.image_std
+        mean=image_processor.image_mean, std=image_processor.image_std
     )
 
-    train_transforms = Compose([
-        RandomResizedCrop(size),
-        RandomHorizontalFlip(),
-        ToTensor(),
-        normalize,
-    ])
+    train_transforms = Compose(
+        [
+            RandomResizedCrop(size),
+            RandomHorizontalFlip(),
+            ToTensor(),
+            normalize,
+        ]
+    )
 
-    val_transforms = Compose([
-        Resize(size),
-        CenterCrop(size),
-        ToTensor(),
-        normalize,
-    ])
+    val_transforms = Compose(
+        [
+            Resize(size),
+            CenterCrop(size),
+            ToTensor(),
+            normalize,
+        ]
+    )
 
     return train_transforms, val_transforms
 

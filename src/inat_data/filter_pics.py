@@ -1,9 +1,10 @@
-import typer
-import polars as pl
-
 from pathlib import Path
 
+import polars as pl
+import typer
+
 app = typer.Typer()
+
 
 @app.command()
 def main(
@@ -24,11 +25,7 @@ def main(
 
     print("processing photos...")
     pics_df = (
-        pl.scan_csv(
-            pics_file,
-            separator="\t",
-            low_memory=True
-        )
+        pl.scan_csv(pics_file, separator="\t", low_memory=True)
         .filter(~pl.col("license").str.contains("ND"))
         .filter((pl.col("width") > 1000) & (pl.col("height") > 1000))
         .filter(pl.col("position") == 1)
