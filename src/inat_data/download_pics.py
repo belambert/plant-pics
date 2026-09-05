@@ -1,11 +1,15 @@
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from pathlib import Path
 
+import boto3
 import polars as pl
 import typer
+from botocore import UNSIGNED
+from botocore.config import Config
 from tqdm import tqdm
+
+_s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
 
 class ImageSize(str, Enum):
@@ -34,19 +38,14 @@ def download_photo(
     Returns:
         Tuple of (photo_id, success, error_message)
     """
-    s3_path = f"s3://inaturalist-open-data/photos/{photo_id}/{size.value}.{extension}"
+    key = f"photos/{photo_id}/{size.value}.{extension}"
     output_file = output_dir / f"{photo_id}.{extension}"
 
     try:
-        result = subprocess.run(
-            ["aws", "s3", "cp", "--no-sign-request", s3_path, str(output_file)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        _s3.download_file("inaturalist-open-data", key, str(output_file))
         return (photo_id, True, "")
-    except subprocess.CalledProcessError as e:
-        return (photo_id, False, e.stderr)
+    except Exception as e:
+        return (photo_id, False, str(e))
 
 
 def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
@@ -65,7 +64,16 @@ def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
     output_dir = Path(size.value)
     output_dir.mkdir(exist_ok=True)
 
-    print(f"Downloading {len(df)} {size.value} photos to {output_dir}/")
+    rows = [
+        row
+        for row in df.iter_rows(named=True)
+        if not (output_dir / f"{row['photo_id']}.{row['extension']}").exists()
+    ]
+    skipped = len(df) - len(rows)
+
+    print(f"Downloading {len(rows)} {size.value} photos to {output_dir}/")
+    if skipped:
+        print(f"Skipping {skipped} already downloaded")
     print(f"Using {max_workers} parallel workers")
 
     # Download files in parallel with progress bar
@@ -77,10 +85,10 @@ def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
             executor.submit(
                 download_photo, row["photo_id"], row["extension"], size, output_dir
             ): row["photo_id"]
-            for row in df.iter_rows(named=True)
+            for row in rows
         }
 
-        with tqdm(total=len(df), desc="Downloading", unit="photo") as pbar:
+        with tqdm(total=len(rows), desc="Downloading", unit="photo") as pbar:
             for future in as_completed(futures):
                 photo_id, success, error = future.result()
 
@@ -91,7 +99,7 @@ def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
 
                 pbar.update(1)
 
-    print(f"\nCompleted: {len(df) - failed}/{len(df)}")
+    print(f"\nCompleted: {len(rows) - failed}/{len(rows)}")
     if failed > 0:
         print(f"Failed: {failed}")
         print(f"Failed IDs: {failed_ids[:10]}{'...' if len(failed_ids) > 10 else ''}")
