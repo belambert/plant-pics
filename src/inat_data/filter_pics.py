@@ -26,6 +26,7 @@ def main(
     print("processing photos...")
     pics_df = (
         pl.scan_csv(pics_file, separator="\t", low_memory=True)
+        # don't include those that don't allow derivates
         .filter(~pl.col("license").str.contains("ND"))
         .filter((pl.col("width") > 1000) & (pl.col("height") > 1000))
         .filter(pl.col("position") == 1)
