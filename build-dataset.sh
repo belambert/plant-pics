@@ -1,6 +1,5 @@
-
-
 # download the metadata files from inaturalist
+mkdir -p data
 aws s3 cp s3://inaturalist-open-data/taxa.csv.gz data/ --no-sign-request
 aws s3 cp s3://inaturalist-open-data/observations.csv.gz data/ --no-sign-request
 aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
