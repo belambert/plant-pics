@@ -1,6 +1,9 @@
 import polars as pl
 
-MIN_RESOLUTION=750
+MIN_RESOLUTION = 750
+# covers all of NE from NYC to New Brunswick
+LAT_MIN, LAT_MAX = 41, 48
+LON_MIN, LON_MAX = -74, -67
 
 def main():
 
@@ -29,9 +32,8 @@ def main():
             low_memory=True,
         )
         .filter(pl.col("quality_grade") == "research")
-        # covers all of NE from NYC to New Brunswick
-        .filter((pl.col("latitude") > 41) & (pl.col("latitude") < 48))
-        .filter((pl.col("longitude") > -74) & (pl.col("longitude") < -67))
+        .filter((pl.col("latitude") > LAT_MIN) & (pl.col("latitude") < LAT_MAX))
+        .filter((pl.col("longitude") > LON_MIN) & (pl.col("longitude") < LON_MAX))
         .select(["taxon_id", "observation_uuid"])
     )
     plant_obs = obs_df.join(plant_taxa, on="taxon_id", how="inner")
