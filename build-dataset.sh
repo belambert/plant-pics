@@ -13,22 +13,16 @@ uv run src/plant_pics/filter.py data --out-prefix "$PREFIX" \
 # download images
 uv run src/plant_pics/download_pics.py "data/${PREFIX}_pics.tsv"
 
-# upload to an unannotated dataset on HF?
-
-
-# use a LM to annotate (some of?) the imgs
-# use vlm-tools...
-
+# use vlm-toolkit to annotate the images
+uv run vlm-process ./large \
+    --prompt-file ./src/imgproc/prompts/inat_classify.txt \
+    --model Qwen/Qwen3.5-9B \
+    --output ne_plants.json
 
 # upload as dataset to HF...
+uv run upload-dataset ne_plants.json belambert/ne_plants
 
-
-
-
-
-
-
-# train and build a classifier to annotate the rest of the images?
+# optional: train and build a classifier to annotate more images
 
 
 # re-upload the clean images?
