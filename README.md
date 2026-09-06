@@ -1,4 +1,8 @@
-# iNat data
+# plant-pics
+
+Builds image datasets of plants from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
+archive. The current filter selects New England observations, but nothing in
+the pipeline is region-specific.
 
 So the full process would look something like this:
 - download the metadata files from inaturalist
