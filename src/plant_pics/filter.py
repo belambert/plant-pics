@@ -3,6 +3,7 @@ from pathlib import Path
 import polars as pl
 import typer
 
+OUT_PREFIX = "plant"
 MIN_RESOLUTION = 750
 # ~20k pics at 10 per species, 152k at 100, 862k unlimited
 MAX_PER_SPECIES = 100
@@ -17,6 +18,12 @@ app = typer.Typer()
 def main(
     data_dir: Path = typer.Argument(
         Path("data"), help="Directory holding the iNaturalist CSVs and filter output"
+    ),
+    out_prefix: str = typer.Option(
+        OUT_PREFIX,
+        "--out-prefix",
+        "-o",
+        help="Prefix for the output files, e.g. 'ne' writes ne_taxa.tsv and ne_pics.tsv",
     ),
     lat_min: float = typer.Option(LAT_MIN, "--lat-min", help="Southern bound"),
     lat_max: float = typer.Option(LAT_MAX, "--lat-max", help="Northern bound"),
@@ -45,7 +52,7 @@ def main(
         & (pl.col("rank") == "species")
     )
     plant_taxa = plant_taxa.select(["taxon_id", "name"])
-    plant_taxa.collect().write_csv(data_dir / "plant_taxa.tsv", separator="\t")
+    plant_taxa.collect().write_csv(data_dir / f"{out_prefix}_taxa.tsv", separator="\t")
 
     print("processing observations...")
     obs_df = (
@@ -80,11 +87,11 @@ def main(
         .head(max_per_species)
     )
 
-    out_file = data_dir / "plant_pics.tsv"
+    out_file = data_dir / f"{out_prefix}_pics.tsv"
     plant_pics.sink_csv(out_file, separator="\t", engine="streaming")
 
     n_rows = pl.scan_csv(out_file, separator="\t").select(pl.len()).collect().item()
-    print(f"wrote {n_rows} rows")
+    print(f"wrote {n_rows} rows to {out_file}")
 
 
 if __name__ == "__main__":

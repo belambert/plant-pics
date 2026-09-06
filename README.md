@@ -8,11 +8,13 @@ So the full process would look something like this:
 - download the metadata files from inaturalist
 - do the filtering:
 
-        uv run src/plant_pics/filter.py data \
+        uv run src/plant_pics/filter.py data --out-prefix ne \
             --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67
 
   `data` is the directory holding the downloaded `*.csv.gz` files; the filter
-  writes `plant_taxa.tsv` and `plant_pics.tsv` back into it.
+  writes `<prefix>_taxa.tsv` and `<prefix>_pics.tsv` back into it, so the call
+  above produces `data/ne_taxa.tsv` and `data/ne_pics.tsv`. The prefix defaults
+  to `plant`.
 - get common names (need LM or LM API)
 - download images
 - (optional: do image classification)
