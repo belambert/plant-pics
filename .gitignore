@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Downloaded data and images
+data/
+large/
+
+# Training runs
+wandb/
+
+# macOS
+.DS_Store
