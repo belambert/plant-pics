@@ -8,6 +8,15 @@ So the full process would look something like this:
 - (optional: do image classification)
 - package into a dataset
 
+## Dataset Cards
+
+`cards/` holds one card per dataset produced here, named after the dataset:
+
+- `cards/plant-classes.md` - photographs labelled by subject kind
+
+Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
+which is why the files carry Hub YAML frontmatter.
+
 
 Classification of 20k images at size "large" (2600 batches of 8)
 ~3 hours on a100 = $15
