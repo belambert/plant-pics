@@ -24,7 +24,7 @@ So the full process would look something like this:
 
 `cards/` holds one card per dataset produced here, named after the dataset:
 
-- `cards/plant-classes.md` - photographs labelled by subject kind
+- `cards/ne_plants.md` - photographs labelled by subject kind
 
 Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
 which is why the files carry Hub YAML frontmatter.

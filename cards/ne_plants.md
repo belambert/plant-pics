@@ -4,7 +4,7 @@ task_categories:
 - image-classification
 ---
 
-# Plant Classes
+# NE Plants
 
 Photographs from a New England plants collection, each labelled by a vision
 language model with the kind of subject it depicts.
@@ -26,5 +26,5 @@ language model with the kind of subject it depicts.
 
 ## Provenance
 
-Generated with `vlm-process` from the [imgproc](https://github.com/belambert/imgproc)
+Generated with `vlm-process` from the [vlm-toolkit](https://github.com/belambert/vlm-toolkit)
 repo and uploaded with its `upload-dataset` command.
