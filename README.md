@@ -20,6 +20,14 @@ So the full process would look something like this:
 - (optional: do image classification)
 - package into a dataset
 
+## Prompts
+
+`prompts/` holds the VLM prompts the annotation step runs, copied out of
+`vlm-toolkit` so they can be edited here:
+
+- `prompts/inat_classify.txt` - sorts a photo into nature / human / magnified /
+  manmade / other
+
 ## Dataset Cards
 
 `cards/` holds one card per dataset produced here, named after the dataset:
