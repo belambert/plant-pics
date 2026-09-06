@@ -4,8 +4,9 @@ aws s3 cp s3://inaturalist-open-data/taxa.csv.gz data/ --no-sign-request
 aws s3 cp s3://inaturalist-open-data/observations.csv.gz data/ --no-sign-request
 aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
 
-# do the filtering
-uv run src/plant_pics/filter.py
+# do the filtering (bounds cover NE from NYC to New Brunswick)
+uv run src/plant_pics/filter.py data \
+    --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67
 
 # download images
 uv run src/plant_pics/download_pics.py data/plant_pics.tsv

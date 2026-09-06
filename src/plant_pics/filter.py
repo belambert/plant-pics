@@ -1,15 +1,38 @@
+from pathlib import Path
+
 import polars as pl
+import typer
 
 MIN_RESOLUTION = 750
+# ~20k pics at 10 per species, 152k at 100, 862k unlimited
+MAX_PER_SPECIES = 100
 # covers all of NE from NYC to New Brunswick
 LAT_MIN, LAT_MAX = 41, 48
 LON_MIN, LON_MAX = -74, -67
 
-def main():
+app = typer.Typer()
 
+
+@app.command()
+def main(
+    data_dir: Path = typer.Argument(
+        Path("data"), help="Directory holding the iNaturalist CSVs and filter output"
+    ),
+    lat_min: float = typer.Option(LAT_MIN, "--lat-min", help="Southern bound"),
+    lat_max: float = typer.Option(LAT_MAX, "--lat-max", help="Northern bound"),
+    lon_min: float = typer.Option(LON_MIN, "--lon-min", help="Western bound"),
+    lon_max: float = typer.Option(LON_MAX, "--lon-max", help="Eastern bound"),
+    min_resolution: int = typer.Option(
+        MIN_RESOLUTION, "--min-resolution", help="Minimum photo width and height"
+    ),
+    max_per_species: int = typer.Option(
+        MAX_PER_SPECIES, "--max-per-species", help="Cap on photos kept per species"
+    ),
+):
+    """Filter iNaturalist metadata down to plant photos within a bounding box."""
     # load the taxa data
     taxa = pl.scan_csv(
-        "data/taxa.csv.gz",
+        data_dir / "taxa.csv.gz",
         separator="\t",
         # these two flags needed to prevent errors
         quote_char=None,
@@ -22,18 +45,18 @@ def main():
         & (pl.col("rank") == "species")
     )
     plant_taxa = plant_taxa.select(["taxon_id", "name"])
-    plant_taxa.collect().write_csv("data/plant_taxa.tsv", separator="\t")
+    plant_taxa.collect().write_csv(data_dir / "plant_taxa.tsv", separator="\t")
 
     print("processing observations...")
     obs_df = (
         pl.scan_csv(
-            "data/observations.csv.gz",
+            data_dir / "observations.csv.gz",
             separator="\t",
             low_memory=True,
         )
         .filter(pl.col("quality_grade") == "research")
-        .filter((pl.col("latitude") > LAT_MIN) & (pl.col("latitude") < LAT_MAX))
-        .filter((pl.col("longitude") > LON_MIN) & (pl.col("longitude") < LON_MAX))
+        .filter((pl.col("latitude") > lat_min) & (pl.col("latitude") < lat_max))
+        .filter((pl.col("longitude") > lon_min) & (pl.col("longitude") < lon_max))
         .select(["taxon_id", "observation_uuid"])
     )
     plant_obs = obs_df.join(plant_taxa, on="taxon_id", how="inner")
@@ -41,32 +64,28 @@ def main():
     print("processing photos...")
     photos_df = (
         pl.scan_csv(
-            "data/photos.csv.gz",
+            data_dir / "photos.csv.gz",
             separator="\t",
             low_memory=True,
         )
         # don't include those that don't allow derivates
         .filter(~pl.col("license").str.contains("ND"))
-        .filter((pl.col("width") >= MIN_RESOLUTION) & (pl.col("height") >= MIN_RESOLUTION))
+        .filter((pl.col("width") >= min_resolution) & (pl.col("height") >= min_resolution))
         .filter(pl.col("position") == 1)
     )
-    columns = ["taxon_id", "observation_uuid", "name", "photo_id", "extension"]
-    plant_pics = photos_df.select(columns)
 
-    # get ~20k with only 10 per species
-    # 862k with unlimited per species
-    # 152k with 100 per species
     plant_pics = (
         plant_obs.join(photos_df, on="observation_uuid", how="inner")
         .group_by("taxon_id")
-        .head(100)
+        .head(max_per_species)
     )
 
-    plant_pics.sink_csv("data/plant_pics.tsv", separator="\t", engine="streaming")
+    out_file = data_dir / "plant_pics.tsv"
+    plant_pics.sink_csv(out_file, separator="\t", engine="streaming")
 
-    n_rows = pl.scan_csv("data/plant_pics.tsv", separator="\t").select(pl.len()).collect().item()
+    n_rows = pl.scan_csv(out_file, separator="\t").select(pl.len()).collect().item()
     print(f"wrote {n_rows} rows")
 
 
 if __name__ == "__main__":
-    main()
+    app()

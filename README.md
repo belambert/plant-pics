@@ -1,12 +1,18 @@
 # plant-pics
 
 Builds image datasets of plants from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
-archive. The current filter selects New England observations, but nothing in
-the pipeline is region-specific.
+archive. The filter defaults to a New England bounding box, but nothing in the
+pipeline is region-specific.
 
 So the full process would look something like this:
 - download the metadata files from inaturalist
-- do the filtering
+- do the filtering:
+
+        uv run src/plant_pics/filter.py data \
+            --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67
+
+  `data` is the directory holding the downloaded `*.csv.gz` files; the filter
+  writes `plant_taxa.tsv` and `plant_pics.tsv` back into it.
 - get common names (need LM or LM API)
 - download images
 - (optional: do image classification)
