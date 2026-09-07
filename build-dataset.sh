@@ -17,10 +17,11 @@ uv run src/plant_pics/download_pics.py "data/${PREFIX}_pics.tsv"
 uv run vlm process ./large \
     --prompt-file ./prompts/inat_classify.txt \
     --model Qwen/Qwen3.5-9B \
-    --output ne_plants.jsonl
+    --output ne_plant_classes.jsonl
 
 # upload as dataset to HF...
-uv run vlm upload-dataset ne_plants.jsonl blambert/ne_plants --card cards/ne_plants.md
+uv run vlm upload-dataset ne_plant_classes.jsonl blambert/ne_plant_classes \
+    --card cards/ne_plant_classes.md
 
 # optional: train and build a classifier to annotate more images
 
