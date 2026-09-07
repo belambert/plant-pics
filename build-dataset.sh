@@ -14,7 +14,7 @@ uv run src/plant_pics/filter.py data --out-prefix "$PREFIX" \
 uv run src/plant_pics/download_pics.py "data/${PREFIX}_pics.tsv"
 
 # use vlm-toolkit to annotate the images
-uv run vlm-process ./large \
+uv run vlm process ./large \
     --prompt-file ./prompts/inat_classify.txt \
     --model Qwen/Qwen3.5-9B \
     --output ne_plants.jsonl
