@@ -19,9 +19,13 @@ uv run vlm process ./large \
     --model Qwen/Qwen3.5-9B \
     --output ne_plant_classes.jsonl
 
-# upload as dataset to HF...
+# upload the labelled images as a dataset to HF...
 uv run vlm upload-dataset ne_plant_classes.jsonl blambert/ne_plant_classes \
     --card cards/ne_plant_classes.md
+
+# ...and the nature ones, with their taxon metadata attached
+uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl "data/${PREFIX}_pics.tsv" \
+    --target blambert/ne_plants --card cards/ne_plants.md
 
 # optional: train and build a classifier to annotate more images
 

@@ -18,7 +18,18 @@ So the full process would look something like this:
 - get common names (need LM or LM API)
 - download images
 - (optional: do image classification)
-- package into a dataset
+- package into a dataset:
+
+        uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl data/ne_pics.tsv \
+            --target blambert/ne_plants --card cards/ne_plants.md
+
+  Takes the `vlm process` output, keeps the images it labelled `nature`
+  (`--label` picks a different class), joins each one to its row in the filter
+  output on the photo id its filename carries, and pushes the result to the
+  Hub. `data/ne_pics.tsv` is the only metadata source, so anything the dataset
+  should carry belongs in the filter's `PIC_COLUMNS`.
+
+`build-dataset.sh` runs the whole sequence.
 
 ## Prompts
 
@@ -33,6 +44,7 @@ So the full process would look something like this:
 `cards/` holds one card per dataset produced here, named after the dataset:
 
 - `cards/ne_plant_classes.md` - photographs labelled by subject kind
+- `cards/ne_plants.md` - the `nature` photos, with taxon and observation metadata
 
 Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
 which is why the files carry Hub YAML frontmatter.
