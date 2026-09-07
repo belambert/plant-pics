@@ -10,6 +10,23 @@ MAX_PER_SPECIES = 100
 # covers all of NE from NYC to New Brunswick
 LAT_MIN, LAT_MAX = 41, 48
 LON_MIN, LON_MAX = -74, -67
+# everything the dataset build carries alongside each image
+PIC_COLUMNS = [
+    "photo_id",
+    "photo_uuid",
+    "extension",
+    "license",
+    "width",
+    "height",
+    "observer_id",
+    "observation_uuid",
+    "observed_on",
+    "latitude",
+    "longitude",
+    "taxon_id",
+    "name",
+    "ancestry",
+]
 
 app = typer.Typer()
 
@@ -51,7 +68,7 @@ def main(
         & (pl.col("ancestry").str.starts_with("48460/47126/"))  # plants
         & (pl.col("rank") == "species")
     )
-    plant_taxa = plant_taxa.select(["taxon_id", "name"])
+    plant_taxa = plant_taxa.select(["taxon_id", "name", "ancestry"])
     plant_taxa.collect().write_csv(data_dir / f"{out_prefix}_taxa.tsv", separator="\t")
 
     print("processing observations...")
@@ -64,7 +81,7 @@ def main(
         .filter(pl.col("quality_grade") == "research")
         .filter((pl.col("latitude") > lat_min) & (pl.col("latitude") < lat_max))
         .filter((pl.col("longitude") > lon_min) & (pl.col("longitude") < lon_max))
-        .select(["taxon_id", "observation_uuid"])
+        .select(["taxon_id", "observation_uuid", "latitude", "longitude", "observed_on"])
     )
     plant_obs = obs_df.join(plant_taxa, on="taxon_id", how="inner")
 
@@ -85,6 +102,8 @@ def main(
         plant_obs.join(photos_df, on="observation_uuid", how="inner")
         .group_by("taxon_id")
         .head(max_per_species)
+        # position is 1 everywhere after the filter above, so it carries nothing
+        .select(PIC_COLUMNS)
     )
 
     out_file = data_dir / f"{out_prefix}_pics.tsv"
