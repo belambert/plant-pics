@@ -66,7 +66,7 @@ def keep_labelled(results_file: Path, label: str) -> list[Path]:
 
 
 def build_dataset(images: list[Path], meta: pl.DataFrame) -> Dataset:
-    """Pair each image with the metadata row for the photo id its file name carries."""
+    """Pair each image with the metadata row for its photo id, skipping those without one."""
     # images are named after their photo id, which is what the filter output is keyed on
     picked = pl.DataFrame(
         {
@@ -77,12 +77,11 @@ def build_dataset(images: list[Path], meta: pl.DataFrame) -> Dataset:
     )
     df = picked.join(meta, on="photo_id", how="inner")
     if len(df) < len(picked):
-        missing = (
-            picked.join(meta, on="photo_id", how="anti")["file_name"].head(5).to_list()
-        )
-        raise ValueError(
-            f"{len(picked) - len(df)} images missing metadata, e.g. {missing}"
-        )
+        missing = picked.join(meta, on="photo_id", how="anti")["file_name"].to_list()
+        for name in missing[:10]:
+            print(f"skipping image missing metadata: {name}")
+        if len(missing) > 10:
+            print(f"...and {len(missing) - 10} more")
 
     return Dataset.from_polars(df).cast_column("image", Image())
 
