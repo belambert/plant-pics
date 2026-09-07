@@ -8,7 +8,7 @@ size_categories:
 - 100K<n<1M
 ---
 
-# NE Plants
+# NE Plant Photos
 
 Plant photographs from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
 archive, filtered to a New England bounding box (latitude 41 to 48, longitude

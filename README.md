@@ -21,7 +21,7 @@ So the full process would look something like this:
 - package into a dataset:
 
         uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl data/ne_pics.tsv \
-            --target blambert/ne_plants --card cards/ne_plants.md
+            --target blambert/ne_plant_photos --card cards/ne_plant_photos.md
 
   Takes the `vlm process` output, keeps the images it labelled `nature`
   (`--label` picks a different class), joins each one to its row in the filter
@@ -44,7 +44,7 @@ So the full process would look something like this:
 `cards/` holds one card per dataset produced here, named after the dataset:
 
 - `cards/ne_plant_classes.md` - photographs labelled by subject kind
-- `cards/ne_plants.md` - the `nature` photos, with taxon and observation metadata
+- `cards/ne_plant_photos.md` - the `nature` photos, with taxon and observation metadata
 
 Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
 which is why the files carry Hub YAML frontmatter.

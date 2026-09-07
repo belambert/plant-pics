@@ -1,4 +1,4 @@
-"""Build ne_plants: the nature-labelled photos, each carrying its iNaturalist metadata."""
+"""Build ne_plant_photos: the nature-labelled photos, each carrying its iNaturalist metadata."""
 
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ from datasets import Dataset, Image
 from vlm_toolkit.hf_dataset import push_card
 
 LABEL = "nature"
-TARGET = "blambert/ne_plants"
+TARGET = "blambert/ne_plant_photos"
 
 app = typer.Typer()
 
@@ -27,7 +27,7 @@ def main(
         LABEL, "--label", help="Keep only images carrying this label"
     ),
     card: Path = typer.Option(
-        Path("cards/ne_plants.md"),
+        Path("cards/ne_plant_photos.md"),
         "--card",
         help="Dataset card to upload as the README",
     ),

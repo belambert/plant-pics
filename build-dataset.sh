@@ -25,7 +25,7 @@ uv run vlm upload-dataset ne_plant_classes.jsonl blambert/ne_plant_classes \
 
 # ...and the nature ones, with their taxon metadata attached
 uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl "data/${PREFIX}_pics.tsv" \
-    --target blambert/ne_plants --card cards/ne_plants.md
+    --target blambert/ne_plant_photos --card cards/ne_plant_photos.md
 
 # optional: train and build a classifier to annotate more images
 
