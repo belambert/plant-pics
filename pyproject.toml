@@ -36,4 +36,15 @@ requires = ["uv_build>=0.9.3,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.isort]
+known_first_party = ["plant_pics"]
+src_paths = ["src"]
 profile = "black"
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "isort>=7.0.0",
+]
+
+[tool.black]
+target-version = ["py314"]
