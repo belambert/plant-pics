@@ -25,6 +25,11 @@ dependencies = [
     "wandb>=0.23.1",
 ]
 
+[project.scripts]
+plant-filter = "plant_pics.filter:app"
+plant-download = "plant_pics.download_pics:app"
+plant-build-dataset = "plant_pics.build_dataset:app"
+
 [build-system]
 requires = ["uv_build>=0.9.3,<0.10.0"]
 build-backend = "uv_build"
