@@ -17,7 +17,7 @@ pipeline is region-specific.
 
 2. **Filter to plants inside the bounding box:**
 
-        uv run src/plant_pics/filter.py data --out-prefix ne \
+        uv run plant-filter data --out-prefix ne \
             --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67
 
    `data` is the directory holding the downloaded `*.csv.gz` files; the filter
@@ -27,7 +27,7 @@ pipeline is region-specific.
 
 3. **Download the images:**
 
-        uv run src/plant_pics/download_pics.py data/ne_pics.tsv
+        uv run plant-download data/ne_pics.tsv
 
 4. **Annotate them** with `vlm-toolkit`, which sorts each photo into nature /
    human / magnified / manmade / other:
@@ -44,7 +44,7 @@ pipeline is region-specific.
 
 6. **Package the `nature` photos into a dataset:**
 
-        uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl data/ne_pics.tsv \
+        uv run plant-build-dataset ne_plant_classes.jsonl data/ne_pics.tsv \
             --target blambert/ne_plant_photos --card cards/ne_plant_photos.md
 
    Takes the `vlm process` output, keeps the images it labelled `nature`
