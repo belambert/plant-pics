@@ -71,6 +71,14 @@ pipeline is region-specific.
 Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
 which is why the files carry Hub YAML frontmatter.
 
+## Development
+
+`uv sync` installs the dev group (black, isort) alongside the project. CI runs
+both on `src/` for pushes and pull requests against `main`:
+
+    uv run black src/
+    uv run isort src/
+
 # Notes
 
 ## Archive Size
