@@ -95,25 +95,3 @@ Taxon 48460 is the root of the tree and 47126 is the Plantae kingdom, so every
 plant's ancestry string starts with `48460/47126/`:
 
     47126	48460	70	kingdom	Plantae	true
-
-## Annotation Cost
-
-Classifying 20k images at size "large" (2600 batches of 8) took ~3 hours on an
-A100, about $15. Worth trying the smaller renditions - thumb (100px) or small
-(240px) - since the classifier only needs the gist of the photo.
-
-## Other Sources
-
-Not currently used by the pipeline, but useful for cross-referencing species
-lists and common names:
-
-    # iNaturalist taxonomy as a Darwin Core archive
-    wget https://www.inaturalist.org/taxa/inaturalist-taxonomy.dwca.zip
-
-    # USDA PLANTS: complete list, state distributions, characteristics
-    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/plantlst.txt
-    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/statedownload.txt
-    wget https://plants.usda.gov/assets/docs/CompletePLANTSList/characteristics.txt
-
-    # Massachusetts NRCS list
-    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/Massachusetts_NRCS_csv.txt
