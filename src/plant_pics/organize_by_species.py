@@ -14,9 +14,7 @@ def main(
     source_dir: str = typer.Argument(
         ..., help="Source directory containing photos named by photo_id"
     ),
-    tsv_file: str = typer.Argument(
-        ..., help="TSV file with photo_id to name mapping"
-    ),
+    tsv_file: str = typer.Argument(..., help="TSV file with photo_id to name mapping"),
     dest_dir: str = typer.Argument(
         ..., help="Destination directory to create and copy photos to"
     ),
@@ -98,7 +96,9 @@ def organize_by_species(source_dir: str, tsv_file: str, dest_dir: str):
             # Handle duplicates by appending counter
             name_counts[normalized_name] += 1
             if name_counts[normalized_name] > 1:
-                dest_filename = f"{normalized_name}_{name_counts[normalized_name]}.{extension}"
+                dest_filename = (
+                    f"{normalized_name}_{name_counts[normalized_name]}.{extension}"
+                )
             else:
                 dest_filename = f"{normalized_name}.{extension}"
 

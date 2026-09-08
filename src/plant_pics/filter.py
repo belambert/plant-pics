@@ -81,7 +81,9 @@ def main(
         .filter(pl.col("quality_grade") == "research")
         .filter((pl.col("latitude") > lat_min) & (pl.col("latitude") < lat_max))
         .filter((pl.col("longitude") > lon_min) & (pl.col("longitude") < lon_max))
-        .select(["taxon_id", "observation_uuid", "latitude", "longitude", "observed_on"])
+        .select(
+            ["taxon_id", "observation_uuid", "latitude", "longitude", "observed_on"]
+        )
     )
     plant_obs = obs_df.join(plant_taxa, on="taxon_id", how="inner")
 
@@ -94,7 +96,9 @@ def main(
         )
         # don't include those that don't allow derivates
         .filter(~pl.col("license").str.contains("ND"))
-        .filter((pl.col("width") >= min_resolution) & (pl.col("height") >= min_resolution))
+        .filter(
+            (pl.col("width") >= min_resolution) & (pl.col("height") >= min_resolution)
+        )
         .filter(pl.col("position") == 1)
     )
 

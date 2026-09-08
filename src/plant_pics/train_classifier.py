@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import typer
+import wandb
 from datasets import load_dataset
 from rich.console import Console
 from rich.table import Table
@@ -24,8 +25,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-import wandb
 
 # Weights & Biases configuration
 WANDB_PROJECT = "inat-vit-classifier"
