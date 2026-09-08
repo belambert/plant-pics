@@ -1,4 +1,3 @@
-import os
 from collections import Counter
 from functools import partial
 from pathlib import Path
@@ -9,7 +8,7 @@ import typer
 from datasets import load_dataset
 from rich.console import Console
 from rich.table import Table
-from sklearn.metrics import classification_report, precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support
 from torchvision.transforms import (
     CenterCrop,
     Compose,
@@ -37,11 +36,20 @@ RANDOM_SEED = 42
 # Dataset split ratios (train/val/test)
 TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT = 0.6, 0.2, 0.2
 
+DATASET = "blambert/ne_plant_classes"
+# the column `vlm upload-dataset` writes its label into
+LABEL_COLUMN = "output"
+# classes rarer than this can't be learned or measured, so drop them
+MIN_CLASS_SIZE = 100
+
 app = typer.Typer()
 
 
 @app.command()
 def main(
+    dataset: str = typer.Argument(
+        DATASET, help="Hub dataset of labelled images to train on"
+    ),
     output_dir: str = typer.Option(
         "models/vit-inat-classifier",
         "--output-dir",
@@ -78,20 +86,20 @@ def main(
         "--no-wandb",
         help="Disable Weights & Biases logging",
     ),
-    limit: int = typer.Option(
+    limit: int | None = typer.Option(
         None,
         "--limit",
         help="Limit total dataset size before splitting (useful for quick testing)",
     ),
+    min_class_size: int = typer.Option(
+        MIN_CLASS_SIZE,
+        "--min-class-size",
+        help="Drop classes with fewer examples than this",
+    ),
 ):
-    """
-    Train a Vision Transformer (ViT) image classifier on iNaturalist data.
-
-    This script loads the blambert/inat_sample_classes dataset from Hugging Face
-    and fine-tunes a pretrained ViT model for plant species classification.
-    Logs training metrics to Weights & Biases.
-    """
+    """Fine-tune a Vision Transformer on a VLM-labelled iNaturalist photo dataset."""
     train_vit_classifier(
+        dataset=dataset,
         output_dir=output_dir,
         model_name=model_name,
         num_epochs=epochs,
@@ -99,6 +107,7 @@ def main(
         learning_rate=learning_rate,
         use_wandb=not no_wandb,
         limit=limit,
+        min_class_size=min_class_size,
     )
 
 
@@ -123,7 +132,28 @@ def print_model_parameters(model):
     print(f"  Non-trainable parameters: {total_params - trainable_params:,}")
 
 
-def print_class_distribution(dataset, labels):
+def drop_rare_classes(data, min_class_size: int):
+    """Drop rows whose class has fewer than `min_class_size` examples."""
+    counts = Counter(data[LABEL_COLUMN])
+    keep = {cls for cls, n in counts.items() if n >= min_class_size}
+
+    dropped = {cls: n for cls, n in counts.items() if cls not in keep}
+    if not dropped:
+        return data
+
+    print(f"\nDropping classes with fewer than {min_class_size} examples:")
+    for cls, n in sorted(dropped.items(), key=lambda kv: -kv[1]):
+        print(f"  {cls}: {n}")
+
+    # filter on the label alone so the images are never decoded
+    return data.filter(
+        lambda col: [cls in keep for cls in col],
+        batched=True,
+        input_columns=LABEL_COLUMN,
+    )
+
+
+def print_class_distribution(splits, id2label):
     """Print table showing class distribution across train/val/test splits."""
     console = Console()
     table = Table(
@@ -135,25 +165,25 @@ def print_class_distribution(dataset, labels):
     table.add_column("Test", justify="right", style="blue")
     table.add_column("Total", justify="right", style="bold")
 
-    train_counts = Counter(dataset["train"]["class"])
-    val_counts = Counter(dataset["val"]["class"])
-    test_counts = Counter(dataset["test"]["class"])
+    train_counts = Counter(splits["train"][LABEL_COLUMN])
+    val_counts = Counter(splits["val"][LABEL_COLUMN])
+    test_counts = Counter(splits["test"][LABEL_COLUMN])
 
-    for label in sorted(labels):
+    for id_, label in sorted(id2label.items(), key=lambda kv: kv[1]):
         t, v, te = (
-            train_counts.get(label, 0),
-            val_counts.get(label, 0),
-            test_counts.get(label, 0),
+            train_counts.get(id_, 0),
+            val_counts.get(id_, 0),
+            test_counts.get(id_, 0),
         )
         table.add_row(label, str(t), str(v), str(te), str(t + v + te))
 
     table.add_section()
     table.add_row(
         "TOTAL",
-        str(len(dataset["train"])),
-        str(len(dataset["val"])),
-        str(len(dataset["test"])),
-        str(len(dataset["train"]) + len(dataset["val"]) + len(dataset["test"])),
+        str(len(splits["train"])),
+        str(len(splits["val"])),
+        str(len(splits["test"])),
+        str(len(splits["train"]) + len(splits["val"]) + len(splits["test"])),
         style="bold",
     )
 
@@ -161,18 +191,21 @@ def print_class_distribution(dataset, labels):
 
 
 def train_vit_classifier(
+    dataset: str = DATASET,
     output_dir: str = "models/vit-inat-classifier",
     model_name: str = "google/vit-base-patch16-224",
     num_epochs: int = 10,
     batch_size: int = 32,
     learning_rate: float = 2e-5,
     use_wandb: bool = True,
-    limit: int = None,
+    limit: int | None = None,
+    min_class_size: int = MIN_CLASS_SIZE,
 ):
     """
     Train a Vision Transformer image classifier on iNaturalist data.
 
     Args:
+        dataset: Hub dataset of labelled images to train on
         output_dir: Directory to save the trained model
         model_name: Pretrained ViT model to use
         num_epochs: Number of training epochs
@@ -180,10 +213,12 @@ def train_vit_classifier(
         learning_rate: Learning rate for optimizer
         use_wandb: Whether to use Weights & Biases for logging
         limit: Limit total dataset size before splitting (for quick testing)
+        min_class_size: Drop classes with fewer examples than this
     """
     # Initialize Weights & Biases
     if use_wandb:
         config = {
+            "dataset": dataset,
             "model_name": model_name,
             "num_epochs": num_epochs,
             "batch_size": batch_size,
@@ -196,30 +231,39 @@ def train_vit_classifier(
         wandb.init(project=WANDB_PROJECT, config=config)
         print(f"Weights & Biases initialized. Project: {WANDB_PROJECT}")
 
-    print(f"Loading dataset: blambert/inat_sample_classes")
-    dataset = load_dataset("blambert/inat_sample_classes")
+    print(f"Loading dataset: {dataset}")
+    data = load_dataset(dataset, split="train")
 
     print(f"\nOriginal dataset info:")
-    print(f"  Total samples: {len(dataset['train'])}")
+    print(f"  Total samples: {len(data)}")
 
     # Shuffle and split the dataset
     print(f"\nShuffling dataset with seed {RANDOM_SEED}...")
-    dataset_shuffled = dataset["train"].shuffle(seed=RANDOM_SEED)
+    data = data.shuffle(seed=RANDOM_SEED)
 
     # Apply limit if specified
     if limit is not None:
         print(f"Limiting dataset to {limit} samples...")
-        dataset_shuffled = dataset_shuffled.select(
-            range(min(limit, len(dataset_shuffled)))
-        )
-        print(f"  Limited samples: {len(dataset_shuffled)}")
+        data = data.select(range(min(limit, len(data))))
+        print(f"  Limited samples: {len(data)}")
+
+    data = drop_rare_classes(data, min_class_size)
+
+    # encode as a ClassLabel so the splits below can stratify on it
+    data = data.class_encode_column(LABEL_COLUMN)
+    labels = data.features[LABEL_COLUMN].names
+    num_labels = len(labels)
+    label2id = {label: i for i, label in enumerate(labels)}
+    id2label = {i: label for i, label in enumerate(labels)}
+    print(f"\n  Number of classes: {num_labels}")
+    print(f"  Classes: {labels}")
 
     print(
         f"\nSplitting dataset {TRAIN_SPLIT:.0%} train / {VAL_SPLIT:.0%} val / {TEST_SPLIT:.0%} test..."
     )
     # First split: separate out test set
-    train_val_test = dataset_shuffled.train_test_split(
-        test_size=TEST_SPLIT, seed=RANDOM_SEED
+    train_val_test = data.train_test_split(
+        test_size=TEST_SPLIT, seed=RANDOM_SEED, stratify_by_column=LABEL_COLUMN
     )
 
     # Second split: separate train and val from the remaining data
@@ -227,34 +271,23 @@ def train_vit_classifier(
         test_size=VAL_SPLIT
         / (TRAIN_SPLIT + VAL_SPLIT),  # Adjust val size relative to remaining data
         seed=RANDOM_SEED,
+        stratify_by_column=LABEL_COLUMN,
     )
 
     # Create final dataset with train/val/test splits
-    dataset = {
+    splits = {
         "train": train_val["train"],
         "val": train_val["test"],
         "test": train_val_test["test"],
     }
 
     print(f"\nSplit dataset info:")
-    print(f"  Train samples: {len(dataset['train'])}")
-    print(f"  Val samples: {len(dataset['val'])}")
-    print(f"  Test samples: {len(dataset['test'])}")
-
-    # Get label information from the dataset
-    print("\nExtracting unique classes from dataset...")
-    unique_classes = sorted(set(dataset["train"]["class"]))
-    labels = unique_classes
-    num_labels = len(labels)
-    print(f"  Number of classes: {num_labels}")
-    print(f"  Classes: {labels[:5]}..." if len(labels) > 5 else f"  Classes: {labels}")
-
-    # Create label mappings
-    label2id = {label: i for i, label in enumerate(labels)}
-    id2label = {i: label for i, label in enumerate(labels)}
+    print(f"  Train samples: {len(splits['train'])}")
+    print(f"  Val samples: {len(splits['val'])}")
+    print(f"  Test samples: {len(splits['test'])}")
 
     # Print class distribution table
-    print_class_distribution(dataset, labels)
+    print_class_distribution(splits, id2label)
 
     # Load image processor and create transforms
     print(f"\nLoading pretrained model: {model_name}")
@@ -263,17 +296,9 @@ def train_vit_classifier(
 
     # Preprocess datasets using partial to make them picklable
     print("\nPreprocessing datasets...")
-    dataset["train"].set_transform(
-        partial(preprocess_train, transform=train_transforms, label2id=label2id)
-    )
-
-    dataset["val"].set_transform(
-        partial(preprocess_val, transform=val_transforms, label2id=label2id)
-    )
-
-    dataset["test"].set_transform(
-        partial(preprocess_val, transform=val_transforms, label2id=label2id)
-    )
+    splits["train"].set_transform(partial(preprocess, transform=train_transforms))
+    splits["val"].set_transform(partial(preprocess, transform=val_transforms))
+    splits["test"].set_transform(partial(preprocess, transform=val_transforms))
 
     # Load model
     print(f"\nInitializing model with {num_labels} output classes...")
@@ -321,10 +346,11 @@ def train_vit_classifier(
         num_train_epochs=num_epochs,
         logging_steps=100,
         load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
+        # macro F1, not accuracy: always predicting `nature` would score 75%
+        metric_for_best_model="f1_macro",
         remove_unused_columns=False,
         push_to_hub=False,
-        report_to="wandb" if use_wandb else None,
+        report_to="wandb" if use_wandb else "none",
         dataloader_num_workers=num_workers,
         dataloader_pin_memory=False if use_mps else True,
         fp16=fp16,
@@ -337,8 +363,8 @@ def train_vit_classifier(
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["val"],  # Use validation set for training evaluation
+        train_dataset=splits["train"],
+        eval_dataset=splits["val"],  # Use validation set for training evaluation
         compute_metrics=compute_metrics,
     )
 
@@ -362,11 +388,11 @@ def train_vit_classifier(
 
     # Evaluate on validation set (final check with best model)
     print("\nFinal validation accuracy...")
-    val_results = trainer.evaluate(dataset["val"])
+    val_results = trainer.evaluate(splits["val"])
 
     # Evaluate on test set (held-out evaluation)
     print("Evaluating on test set...")
-    test_results = trainer.evaluate(dataset["test"])
+    test_results = trainer.evaluate(splits["test"])
 
     # Print training summary
     print("\n" + "=" * 60)
@@ -374,7 +400,9 @@ def train_vit_classifier(
     print(f"  Total training time: {train_result.metrics['train_runtime']:.2f}s")
     print(f"  Final training loss: {train_result.metrics['train_loss']:.4f}")
     print(f"  Best validation accuracy: {val_results['eval_accuracy']:.4f}")
+    print(f"  Best validation macro F1: {val_results['eval_f1_macro']:.4f}")
     print(f"  Final test accuracy: {test_results['eval_accuracy']:.4f}")
+    print(f"  Final test macro F1: {test_results['eval_f1_macro']:.4f}")
     print(f"  Model saved to: {output_dir}")
     print("=" * 60)
 
@@ -425,26 +453,15 @@ def create_transforms(image_processor):
     return train_transforms, val_transforms
 
 
-def preprocess_train(examples, *, transform, label2id):
-    """Apply transformations to training examples."""
-    examples["pixel_values"] = [
-        transform(image.convert("RGB")) for image in examples["image"]
-    ]
-    examples["labels"] = [label2id[cls] for cls in examples["class"]]
-    del examples["image"]
-    del examples["class"]
-    return examples
-
-
-def preprocess_val(examples, *, transform, label2id):
-    """Apply transformations to validation examples."""
-    examples["pixel_values"] = [
-        transform(image.convert("RGB")) for image in examples["image"]
-    ]
-    examples["labels"] = [label2id[cls] for cls in examples["class"]]
-    del examples["image"]
-    del examples["class"]
-    return examples
+def preprocess(examples, *, transform):
+    """Apply `transform` to a batch, keeping only what the Trainer consumes."""
+    return {
+        "pixel_values": [
+            transform(image.convert("RGB")) for image in examples["image"]
+        ],
+        # class_encode_column already turned the labels into ids
+        "labels": examples[LABEL_COLUMN],
+    }
 
 
 def compute_metrics_factory(id2label, use_wandb=True):
