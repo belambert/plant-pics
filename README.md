@@ -4,32 +4,54 @@ Builds image datasets of plants from the [iNaturalist open data](https://github.
 archive. The filter defaults to a New England bounding box, but nothing in the
 pipeline is region-specific.
 
-So the full process would look something like this:
-- download the metadata files from inaturalist
-- do the filtering:
+## Pipeline
+
+`build-dataset.sh` runs the whole sequence. The steps are:
+
+1. **Download the metadata.** The archive lives in a public S3 bucket and is
+   refreshed monthly:
+
+        aws s3 cp s3://inaturalist-open-data/taxa.csv.gz data/ --no-sign-request
+        aws s3 cp s3://inaturalist-open-data/observations.csv.gz data/ --no-sign-request
+        aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
+
+2. **Filter to plants inside the bounding box:**
 
         uv run src/plant_pics/filter.py data --out-prefix ne \
             --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67
 
-  `data` is the directory holding the downloaded `*.csv.gz` files; the filter
-  writes `<prefix>_taxa.tsv` and `<prefix>_pics.tsv` back into it, so the call
-  above produces `data/ne_taxa.tsv` and `data/ne_pics.tsv`. The prefix defaults
-  to `plant`.
-- get common names (need LM or LM API)
-- download images
-- (optional: do image classification)
-- package into a dataset:
+   `data` is the directory holding the downloaded `*.csv.gz` files; the filter
+   writes `<prefix>_taxa.tsv` and `<prefix>_pics.tsv` back into it, so the call
+   above produces `data/ne_taxa.tsv` and `data/ne_pics.tsv`. The prefix defaults
+   to `plant`.
+
+3. **Download the images:**
+
+        uv run src/plant_pics/download_pics.py data/ne_pics.tsv
+
+4. **Annotate them** with `vlm-toolkit`, which sorts each photo into nature /
+   human / magnified / manmade / other:
+
+        uv run vlm process ./large \
+            --prompt-file ./prompts/inat_classify.txt \
+            --model Qwen/Qwen3.5-9B \
+            --output ne_plant_classes.jsonl
+
+5. **Publish the labelled photos** as their own dataset:
+
+        uv run vlm upload-dataset ne_plant_classes.jsonl blambert/ne_plant_classes \
+            --card cards/ne_plant_classes.md
+
+6. **Package the `nature` photos into a dataset:**
 
         uv run src/plant_pics/build_dataset.py ne_plant_classes.jsonl data/ne_pics.tsv \
             --target blambert/ne_plant_photos --card cards/ne_plant_photos.md
 
-  Takes the `vlm process` output, keeps the images it labelled `nature`
-  (`--label` picks a different class), joins each one to its row in the filter
-  output on the photo id its filename carries, and pushes the result to the
-  Hub. `data/ne_pics.tsv` is the only metadata source, so anything the dataset
-  should carry belongs in the filter's `PIC_COLUMNS`.
-
-`build-dataset.sh` runs the whole sequence.
+   Takes the `vlm process` output, keeps the images it labelled `nature`
+   (`--label` picks a different class), joins each one to its row in the filter
+   output on the photo id its filename carries, and pushes the result to the
+   Hub. `data/ne_pics.tsv` is the only metadata source, so anything the dataset
+   should carry belongs in the filter's `PIC_COLUMNS`.
 
 ## Prompts
 
@@ -49,82 +71,49 @@ So the full process would look something like this:
 Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
 which is why the files carry Hub YAML frontmatter.
 
+# Notes
 
-Classification of 20k images at size "large" (2600 batches of 8)
-~3 hours on a100 = $15
+## Archive Size
 
-Do the classification on the smaller sized images.  Try thumb (100px) or
-small (240px).
+As of 1/1/2026:
 
- 401,313,288 photos.csv
+| File               | Rows        |
+| ------------------ | ----------- |
+| taxa.csv.gz        | 1,615,611   |
+| observations.csv.gz| 226,862,366 |
+| photos.csv.gz      | 401,313,288 |
 
-## Get the data
+416,341 of the taxa rows are plants.
 
-Download raw data from S3 (updated monthly?):
-
-    aws s3 cp s3://inaturalist-open-data/taxa.csv.gz . --no-sign-request
-    aws s3 cp s3://inaturalist-open-data/observations.csv.gz . --no-sign-request
-    aws s3 cp s3://inaturalist-open-data/photos.csv.gz . --no-sign-request
-
-More information about the data here:
-https://github.com/inaturalist/inaturalist-open-data
-
-Peek at the raw data from the command line without decompressing like this:
+Peek at the raw data without decompressing:
 
     gzcat taxa.csv.gz | less
 
+## Plant Taxonomy
 
-Also need:
+Taxon 48460 is the root of the tree and 47126 is the Plantae kingdom, so every
+plant's ancestry string starts with `48460/47126/`:
 
+    47126	48460	70	kingdom	Plantae	true
+
+## Annotation Cost
+
+Classifying 20k images at size "large" (2600 batches of 8) took ~3 hours on an
+A100, about $15. Worth trying the smaller renditions - thumb (100px) or small
+(240px) - since the classifier only needs the gist of the photo.
+
+## Other Sources
+
+Not currently used by the pipeline, but useful for cross-referencing species
+lists and common names:
+
+    # iNaturalist taxonomy as a Darwin Core archive
     wget https://www.inaturalist.org/taxa/inaturalist-taxonomy.dwca.zip
 
-Mass list...:
-
-    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/Massachusetts_NRCS_csv.txt
-
-USDA data
-
-    wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/plantlst.txt
-
-    # Download the complete database
+    # USDA PLANTS: complete list, state distributions, characteristics
     wget https://plants.usda.gov/assets/docs/CompletePLANTSList/plantlst.txt
-
-    # State distribution data
     wget https://plants.usda.gov/assets/docs/CompletePLANTSList/statedownload.txt
-
-    # Characteristics data
     wget https://plants.usda.gov/assets/docs/CompletePLANTSList/characteristics.txt
 
-
+    # Massachusetts NRCS list
     wget https://plants.sc.egov.usda.gov/DocumentLibrary/Txt/Massachusetts_NRCS_csv.txt
-
-
-
-# Notes
-
-On 1/1/2026
-
-Plantae
-
-48460 is the root of the tree
-47126 is Plantae kingdom
-
-The ancestry prefix for all plants should be "48460/47126/"
-
-taxa csv has 1,615,611 rows
-
-416,341 are plants
-
-
-gzcat observations.csv.gz| wc -l
- 226,862,366
-
-gzcat photos.csv.gz| wc -l      
- 401,313,288
-
-
-
-47126	48460	70	kingdom	Plantae	true
-
-
-https://github.com/inaturalist/inaturalist-open-data
