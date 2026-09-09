@@ -10,6 +10,8 @@ MAX_PER_SPECIES = 100
 # covers all of NE from NYC to New Brunswick
 LAT_MIN, LAT_MAX = 41, 48
 LON_MIN, LON_MAX = -74, -67
+# what the taxa output carries, one row per species the photos cover
+TAXA_COLUMNS = ["taxon_id", "name", "ancestry"]
 # everything the dataset build carries alongside each image
 PIC_COLUMNS = [
     "photo_id",
@@ -68,8 +70,7 @@ def main(
         & (pl.col("ancestry").str.starts_with("48460/47126/"))  # plants
         & (pl.col("rank") == "species")
     )
-    plant_taxa = plant_taxa.select(["taxon_id", "name", "ancestry"])
-    plant_taxa.collect().write_csv(data_dir / f"{out_prefix}_taxa.tsv", separator="\t")
+    plant_taxa = plant_taxa.select(TAXA_COLUMNS)
 
     print("processing observations...")
     obs_df = (
@@ -115,6 +116,19 @@ def main(
 
     n_rows = pl.scan_csv(out_file, separator="\t").select(pl.len()).collect().item()
     print(f"wrote {n_rows} rows to {out_file}")
+
+    # the species the photos actually cover, rather than every plant in the
+    # archive
+    species = (
+        pl.scan_csv(out_file, separator="\t")
+        .select(TAXA_COLUMNS)
+        .unique("taxon_id")
+        .sort("taxon_id")
+        .collect()
+    )
+    taxa_file = data_dir / f"{out_prefix}_taxa.tsv"
+    species.write_csv(taxa_file, separator="\t")
+    print(f"wrote {len(species)} species to {taxa_file}")
 
 
 if __name__ == "__main__":
