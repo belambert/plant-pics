@@ -23,7 +23,8 @@ pipeline is region-specific.
    `data` is the directory holding the downloaded `*.csv.gz` files; the filter
    writes `<prefix>_taxa.tsv` and `<prefix>_pics.tsv` back into it, so the call
    above produces `data/ne_taxa.tsv` and `data/ne_pics.tsv`. The prefix defaults
-   to `plant`.
+   to `plant`. `_pics.tsv` is one row per photo; `_taxa.tsv` is one row per
+   species those photos cover.
 
 3. **Download the images:**
 
