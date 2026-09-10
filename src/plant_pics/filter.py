@@ -7,6 +7,8 @@ OUT_PREFIX = "plant"
 MIN_RESOLUTION = 750
 # ~20k pics at 10 per species, 152k at 100, 862k unlimited
 MAX_PER_SPECIES = 100
+# 0 keeps every species the photos cover
+MAX_SPECIES = 0
 # covers all of NE from NYC to New Brunswick
 LAT_MIN, LAT_MAX = 41, 48
 LON_MIN, LON_MAX = -74, -67
@@ -53,6 +55,11 @@ def main(
     ),
     max_per_species: int = typer.Option(
         MAX_PER_SPECIES, "--max-per-species", help="Cap on photos kept per species"
+    ),
+    max_species: int = typer.Option(
+        MAX_SPECIES,
+        "--max-species",
+        help="Keep only this many species, most observed first; 0 keeps all",
     ),
 ):
     """Filter iNaturalist metadata down to plant photos within a bounding box."""
@@ -103,8 +110,23 @@ def main(
         .filter(pl.col("position") == 1)
     )
 
+    candidates = plant_obs.join(photos_df, on="observation_uuid", how="inner")
+
+    # rank before the per-species cap, so the counts reflect how commonly each
+    # species is observed rather than where the cap lands
+    print("counting observations per species...")
+    counts = (
+        candidates.group_by("taxon_id")
+        .agg(pl.len().alias("observations"))
+        .sort("observations", descending=True)
+        .collect()
+    )
+    if max_species:
+        counts = counts.head(max_species)
+    print(f"keeping {len(counts)} species")
+
     plant_pics = (
-        plant_obs.join(photos_df, on="observation_uuid", how="inner")
+        candidates.join(counts.lazy().select("taxon_id"), on="taxon_id", how="inner")
         .group_by("taxon_id")
         .head(max_per_species)
         # position is 1 everywhere after the filter above, so it carries nothing
@@ -118,12 +140,13 @@ def main(
     print(f"wrote {n_rows} rows to {out_file}")
 
     # the species the photos actually cover, rather than every plant in the
-    # archive
+    # archive, most commonly observed first
     species = (
         pl.scan_csv(out_file, separator="\t")
         .select(TAXA_COLUMNS)
         .unique("taxon_id")
-        .sort("taxon_id")
+        .join(counts.lazy(), on="taxon_id", how="inner")
+        .sort("observations", descending=True)
         .collect()
     )
     taxa_file = data_dir / f"{out_prefix}_taxa.tsv"
