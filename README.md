@@ -24,8 +24,8 @@ pipeline is region-specific.
    writes `<prefix>_taxa.tsv` and `<prefix>_pics.tsv` back into it, so the call
    above produces `data/ne_taxa.tsv` and `data/ne_pics.tsv`. The prefix defaults
    to `plant`. `_pics.tsv` is one row per photo; `_taxa.tsv` is one row per
-   species those photos cover, most commonly observed first, with an
-   `observations` column counting the matching observations before
+   species those photos cover, most commonly observed first. Both carry an
+   `observations` column counting the species' matching observations before
    `--max-per-species` caps the photos kept.
 
    `--max-species` trims the run to the most observed species, e.g.
