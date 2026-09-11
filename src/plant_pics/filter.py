@@ -30,6 +30,7 @@ PIC_COLUMNS = [
     "taxon_id",
     "name",
     "ancestry",
+    "observations",
 ]
 
 app = typer.Typer()
@@ -126,7 +127,7 @@ def main(
     print(f"keeping {len(counts)} species")
 
     plant_pics = (
-        candidates.join(counts.lazy().select("taxon_id"), on="taxon_id", how="inner")
+        candidates.join(counts.lazy(), on="taxon_id", how="inner")
         .group_by("taxon_id")
         .head(max_per_species)
         # position is 1 everywhere after the filter above, so it carries nothing
@@ -143,9 +144,8 @@ def main(
     # archive, most commonly observed first
     species = (
         pl.scan_csv(out_file, separator="\t")
-        .select(TAXA_COLUMNS)
+        .select(TAXA_COLUMNS + ["observations"])
         .unique("taxon_id")
-        .join(counts.lazy(), on="taxon_id", how="inner")
         .sort("observations", descending=True)
         .collect()
     )
