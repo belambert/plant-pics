@@ -35,6 +35,8 @@ archive at up to 100 photos per species.
   the photo belongs to
 - `taxon_id`, `name`, `ancestry` - the iNaturalist taxon id, its scientific
   name, and the `/`-separated ancestor taxon ids up to the root
+- `observations` - how many matching observations the species has, before the
+  per-species photo cap
 
 Every row is a research-grade observation of an active species-rank taxon under
 Plantae, with the photo at least 750 pixels on each side.
