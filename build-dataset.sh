@@ -10,6 +10,10 @@ aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
 uv run plant-filter data --out-prefix "$PREFIX" \
     --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67 --max-species 100
 
+# creates two files:
+# _pics.tsv           _taxa.tsv
+
+
 # download images
 uv run plant-download "data/${PREFIX}_pics.tsv"
 
