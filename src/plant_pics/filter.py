@@ -20,14 +20,11 @@ PIC_COLUMNS = [
     "license",
     "width",
     "height",
-    "observer_id",
-    "observation_uuid",
     "observed_on",
     "latitude",
     "longitude",
     "taxon_id",
     "name",
-    "ancestry",
     "observations",
 ]
 
@@ -106,16 +103,12 @@ def main(
 
     candidates = plant_obs.join(photos_df, on="observation_uuid", how="inner")
 
-    # rank before the per-species cap, so the counts reflect how commonly each
-    # species is observed rather than where the cap lands
     print("counting observations per species...")
     counts = (
         candidates.group_by("taxon_id")
         .agg(pl.len().alias("observations"))
-        .sort("observations", descending=True)
         .collect()
     )
-    print(f"keeping {len(counts)} species")
 
     plant_pics = (
         candidates.join(counts.lazy(), on="taxon_id", how="inner")
