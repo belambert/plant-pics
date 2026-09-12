@@ -10,10 +10,6 @@ aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
 uv run plant-filter data --out-prefix "$PREFIX" \
     --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67 --max-per-species 100
 
-# creates two files:
-# _pics.tsv           _taxa.tsv
-
-
 # download images
 uv run plant-download "data/${PREFIX}_pics.tsv"
 
@@ -31,18 +27,6 @@ uv run vlm upload-dataset ne_plant_classes.jsonl blambert/ne_plant_classes \
 uv run plant-build-dataset ne_plant_classes.jsonl "data/${PREFIX}_pics.tsv" \
     --target blambert/ne_plant_photos --card cards/ne_plant_photos.md
 
+
+
 # optional: train and build a classifier to annotate more images
-
-
-# re-upload the clean images?
-
-
-
-
-# get common names (need LM or LM API)
-
-# (optional: do image classification)
-
-
-
-# package into a dataset
