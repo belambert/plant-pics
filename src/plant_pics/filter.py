@@ -125,11 +125,12 @@ def main(
     print(f"wrote {n_rows} rows to {out_file}")
 
     # the species the photos actually cover, rather than every plant in the
-    # archive, most commonly observed first
+    # archive, most commonly observed first. the counts come from the same
+    # candidates the pics file is capped from, so its taxa are exactly these.
     species = (
-        pl.scan_csv(out_file, separator="\t")
+        plant_taxa.unique("taxon_id")
+        .join(counts.lazy(), on="taxon_id", how="inner")
         .select(TAXA_COLUMNS + ["observations"])
-        .unique("taxon_id")
         .sort("observations", descending=True)
         .collect()
     )
