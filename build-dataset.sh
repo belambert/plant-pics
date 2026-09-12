@@ -8,7 +8,7 @@ aws s3 cp s3://inaturalist-open-data/photos.csv.gz data/ --no-sign-request
 
 # do the filtering (bounds cover NE from NYC to New Brunswick)
 uv run plant-filter data --out-prefix "$PREFIX" \
-    --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67 --max-species 100
+    --lat-min 41 --lat-max 48 --lon-min -74 --lon-max -67 --max-per-species 100
 
 # creates two files:
 # _pics.tsv           _taxa.tsv
