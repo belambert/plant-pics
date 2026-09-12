@@ -82,6 +82,10 @@ both on `src/` for pushes and pull requests against `main`:
     uv run black src/
     uv run isort src/
 
+## TODO
+
+- Add the capability to create a subset dataset for experimentation.
+
 # Notes
 
 ## Archive Size
