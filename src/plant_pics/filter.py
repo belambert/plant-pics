@@ -105,9 +105,7 @@ def main(
 
     print("counting observations per species...")
     counts = (
-        candidates.group_by("taxon_id")
-        .agg(pl.len().alias("observations"))
-        .collect()
+        candidates.group_by("taxon_id").agg(pl.len().alias("observations")).collect()
     )
 
     plant_pics = (
