@@ -22,7 +22,7 @@ a person, a microscope image, or something manmade - so photos of people and
 indoor shots are largely gone, but the labelling is model output and has not
 been checked against a hand-labelled sample.
 
-114,054 images in a single `train` split, covering the species in the source
+114,075 images in a single `train` split, covering the species in the source
 archive at up to 100 photos per species.
 
 ## Columns
@@ -30,11 +30,10 @@ archive at up to 100 photos per species.
 - `image` - the photograph, embedded in the dataset
 - `file_name` - the original filename, named after the iNaturalist photo id
 - `photo_id`, `photo_uuid`, `extension` - iNaturalist photo identifiers
-- `license`, `observer_id` - who took the photo and on what terms
-- `observation_uuid`, `observed_on`, `latitude`, `longitude` - the observation
-  the photo belongs to
-- `taxon_id`, `name`, `ancestry` - the iNaturalist taxon id, its scientific
-  name, and the `/`-separated ancestor taxon ids up to the root
+- `license` - the terms the photo is published under
+- `width`, `height` - the photo's pixel dimensions
+- `observed_on`, `latitude`, `longitude` - when and where the observation was made
+- `taxon_id`, `name` - the iNaturalist taxon id and its scientific name
 - `observations` - how many matching observations the species has, before the
   per-species photo cap
 
