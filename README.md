@@ -28,10 +28,6 @@ pipeline is region-specific.
    `observations` column counting the species' matching observations before
    `--max-per-species` caps the photos kept.
 
-   `--max-species` trims the run to the most observed species, e.g.
-   `--max-species 100` keeps the top 100 and drops the long tail. It defaults
-   to 0, which keeps every species.
-
 3. **Download the images:**
 
         uv run plant-download data/ne_pics.tsv

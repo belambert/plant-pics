@@ -7,8 +7,6 @@ OUT_PREFIX = "plant"
 MIN_RESOLUTION = 750
 # ~20k pics at 10 per species, 152k at 100, 862k unlimited
 MAX_PER_SPECIES = 100
-# 0 keeps every species the photos cover
-MAX_SPECIES = 0
 # covers all of NE from NYC to New Brunswick
 LAT_MIN, LAT_MAX = 41, 48
 LON_MIN, LON_MAX = -74, -67
@@ -56,11 +54,6 @@ def main(
     ),
     max_per_species: int = typer.Option(
         MAX_PER_SPECIES, "--max-per-species", help="Cap on photos kept per species"
-    ),
-    max_species: int = typer.Option(
-        MAX_SPECIES,
-        "--max-species",
-        help="Keep only this many species, most observed first; 0 keeps all",
     ),
 ):
     """Filter iNaturalist metadata down to plant photos within a bounding box."""
@@ -122,8 +115,6 @@ def main(
         .sort("observations", descending=True)
         .collect()
     )
-    if max_species:
-        counts = counts.head(max_species)
     print(f"keeping {len(counts)} species")
 
     plant_pics = (
