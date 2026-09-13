@@ -84,6 +84,12 @@ dataset cards use.
 
         uv run plant-train-classifier --output-dir models/vit-inat-classifier
 
+  It holds out a stratified 20% test split and writes its scores to
+  `test_results.json` and `test_per_label.json` (per-label scores and a
+  confusion matrix) in the output directory. `--push-to <repo>` uploads the
+  best checkpoint to the Hub once training finishes, with `--card` supplying
+  the model card.
+
 ## Prompts
 
 `prompts/` holds the VLM prompts the annotation step runs, copied out of
@@ -92,14 +98,16 @@ dataset cards use.
 - `prompts/inat_classify.txt` - sorts a photo into nature / human / magnified /
   manmade / other
 
-## Dataset Cards
+## Cards
 
-`cards/` holds one card per dataset produced here, named after the dataset:
+`cards/` holds one card per dataset or model produced here, named after the
+Hub repo:
 
 - `cards/ne_plant_classes.md` - photographs labelled by subject kind
 - `cards/ne_plant_photos.md` - the `nature` photos, with taxon and observation metadata
+- `cards/ne_plant_classes_vit.md` - the classifier trained on `ne_plant_classes`
 
-Each card is uploaded to the Hugging Face Hub as that dataset's `README.md`,
+Each card is uploaded to the Hugging Face Hub as that repo's `README.md`,
 which is why the files carry Hub YAML frontmatter.
 
 ## Development
