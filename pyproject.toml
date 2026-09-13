@@ -28,7 +28,7 @@ dependencies = [
 
 [project.scripts]
 plant-filter = "plant_pics.filter:app"
-plant-download = "plant_pics.download_pics:app"
+plant-download = "plant_pics.download:app"
 plant-build-dataset = "plant_pics.build_dataset:app"
 
 [build-system]

@@ -50,7 +50,7 @@ in the `license` column. Everything but the CC0 portion requires attribution.
 ## Provenance
 
 Built by [plant-pics](https://github.com/belambert/plant-pics): the archive is
-filtered with `filter.py`, the images downloaded with `download_pics.py`,
+filtered with `filter.py`, the images downloaded with `download.py`,
 labelled by running `vlm process` with `prompts/inat_classify.txt` over them,
 and assembled here by `build_dataset.py`, which keeps the `nature` label and
 joins the filter's metadata back onto each image.
