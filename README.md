@@ -56,6 +56,18 @@ pipeline is region-specific.
    Hub. `data/ne_pics.tsv` is the only metadata source, so anything the dataset
    should carry belongs in the filter's `PIC_COLUMNS`.
 
+## Other Commands
+
+- **Look up common names** for every species in a filter output's `name`
+  column with Claude Haiku, writing them to a TSV (needs `ANTHROPIC_API_KEY`):
+
+        uv run plant-extract-common-names data/ne_taxa.tsv -o data/common_names.tsv
+
+- **Train a ViT classifier** on a labelled Hub dataset (defaults to
+  `blambert/ne_plant_classes`), logging to Weights & Biases unless `--no-wandb`:
+
+        uv run plant-train-classifier --output-dir models/vit-inat-classifier
+
 ## Prompts
 
 `prompts/` holds the VLM prompts the annotation step runs, copied out of
