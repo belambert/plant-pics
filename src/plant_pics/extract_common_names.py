@@ -44,7 +44,7 @@ INPUT_TOKEN_COST = 0.25  # $0.25 per million input tokens
 OUTPUT_TOKEN_COST = 1.25  # $1.25 per million output tokens
 
 
-def get_common_names_batch(
+def extract_common_names_batch(
     scientific_names: list[str], client: Anthropic
 ) -> tuple[dict[str, list[str]], dict[str, int]]:
     """
@@ -100,7 +100,7 @@ def get_common_names_batch(
     return result, usage
 
 
-def get_common_names(input_file: str, output_file: str, batch_size: int = 50):
+def extract_common_names(input_file: str, output_file: str, batch_size: int = 50):
     """
     Read species names from a TSV file and get all their common names.
 
@@ -169,7 +169,7 @@ def get_common_names(input_file: str, output_file: str, batch_size: int = 50):
             batch = unique_names[i : i + batch_size]
 
             try:
-                batch_results, usage = get_common_names_batch(batch, client)
+                batch_results, usage = extract_common_names_batch(batch, client)
                 all_common_names.update(batch_results)
                 total_input_tokens += usage["input_tokens"]
                 total_output_tokens += usage["output_tokens"]
@@ -247,7 +247,7 @@ def main(
     queries the Anthropic API for all common names (ordered from most to least common),
     and writes the results to an output TSV file with common names separated by semicolons.
     """
-    get_common_names(input_file, output_file, batch_size)
+    extract_common_names(input_file, output_file, batch_size)
 
 
 if __name__ == "__main__":
