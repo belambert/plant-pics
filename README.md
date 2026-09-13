@@ -8,7 +8,12 @@ to the Hugging Face Hub. A ViT classifier can then be trained on the labelled
 photos.
 
 The filter defaults to a New England bounding box, but nothing in the pipeline
-is region-specific.
+is region-specific. The New England run produced two datasets:
+
+- [blambert/ne_plant_classes](https://huggingface.co/datasets/blambert/ne_plant_classes) -
+  every photo, labelled nature / human / magnified / manmade / other
+- [blambert/ne_plant_photos](https://huggingface.co/datasets/blambert/ne_plant_photos) -
+  the `nature` photos, with taxon and observation metadata
 
 ## Pipeline
 
