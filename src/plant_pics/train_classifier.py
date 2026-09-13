@@ -173,6 +173,7 @@ def train_vit_classifier(
             "batch_size": batch_size,
             "learning_rate": learning_rate,
             "output_dir": output_dir,
+            "min_class_size": min_class_size,
         }
         if limit is not None:
             config["limit"] = limit
@@ -237,6 +238,10 @@ def train_vit_classifier(
 
     # Print class distribution table
     print_class_distribution(splits, id2label)
+    if use_wandb:
+        wandb.config.update(
+            {"labels": labels} | {f"{k}_size": len(v) for k, v in splits.items()}
+        )
 
     # Load image processor and create transforms
     print(f"\nLoading pretrained model: {model_name}")
@@ -310,7 +315,7 @@ def train_vit_classifier(
 
     # Initialize trainer
     print("\nInitializing trainer...")
-    compute_metrics = compute_metrics_factory(id2label, use_wandb=use_wandb)
+    compute_metrics = compute_metrics_factory(id2label)
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -348,6 +353,8 @@ def train_vit_classifier(
     test_results = test_pred.metrics
     trainer.save_metrics("test", test_results)
     save_per_label_scores(test_pred, id2label, output_path / "test_per_label.json")
+    if use_wandb:
+        log_test_to_wandb(test_pred, id2label)
 
     # Print training summary
     print("\n" + "=" * 60)
@@ -501,6 +508,31 @@ def save_per_label_scores(pred, id2label, path: Path):
     print(f"Saved per-label scores to {path}")
 
 
+def log_test_to_wandb(pred, id2label):
+    """Record test scores in the run summary, with a per-label table and confusion matrix."""
+    # predict() doesn't log, so without this the test split never reaches W&B
+    wandb.summary.update(pred.metrics)
+
+    names = [id2label[i] for i in sorted(id2label)]
+    rows = [
+        [name]
+        + [pred.metrics[f"test_{m}_{name}"] for m in ("precision", "recall", "f1")]
+        for name in names
+    ]
+    wandb.log(
+        {
+            "test/per_label": wandb.Table(
+                columns=["label", "precision", "recall", "f1"], data=rows
+            ),
+            "test/confusion_matrix": wandb.plot.confusion_matrix(
+                y_true=pred.label_ids.tolist(),
+                preds=np.argmax(pred.predictions, axis=1).tolist(),
+                class_names=names,
+            ),
+        }
+    )
+
+
 def create_transforms(image_processor):
     """
     Create image transformations for training and validation.
@@ -538,53 +570,32 @@ def preprocess(examples, *, transform):
     }
 
 
-def compute_metrics_factory(id2label, use_wandb=True):
-    """
-    Create a compute_metrics function with access to label mappings.
-
-    Args:
-        id2label: Dictionary mapping class IDs to class names
-        use_wandb: Whether to log per-class metrics to wandb
-
-    Returns:
-        compute_metrics function
-    """
+def compute_metrics_factory(id2label):
+    """Create a compute_metrics function reporting overall and per-label scores."""
+    ids = sorted(id2label)
 
     def compute_metrics(eval_pred):
-        """Compute accuracy and per-class precision/recall metrics."""
-        predictions, labels = eval_pred
-        predictions = np.argmax(predictions, axis=1)
-
-        # Overall accuracy
-        accuracy = (predictions == labels).mean()
-
-        # Per-class precision and recall
-        precision, recall, f1, support = precision_recall_fscore_support(
-            labels, predictions, average=None, zero_division=0
+        """Compute accuracy, macro scores, and precision/recall/F1 per label."""
+        logits, labels = eval_pred
+        predictions = np.argmax(logits, axis=1)
+        # fixed label order, so a label missing from the predictions keeps its slot
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            labels, predictions, labels=ids, zero_division=0
         )
 
-        # Create metrics dict
-        metrics = {"accuracy": accuracy}
-
-        # Add per-class metrics
-        if use_wandb:
-            # Log per-class metrics to wandb
-            class_metrics = {}
-            for idx, (prec, rec, f1_score) in enumerate(zip(precision, recall, f1)):
-                class_name = id2label.get(idx, f"class_{idx}")
-                class_metrics[f"precision/{class_name}"] = prec
-                class_metrics[f"recall/{class_name}"] = rec
-                class_metrics[f"f1/{class_name}"] = f1_score
-
-            # Log to wandb
-            if wandb.run is not None:
-                wandb.log(class_metrics)
-
-        # Also compute macro averages
-        metrics["precision_macro"] = precision.mean()
-        metrics["recall_macro"] = recall.mean()
-        metrics["f1_macro"] = f1.mean()
-
+        # returned rather than logged directly, so they share the Trainer's step
+        metrics = {
+            "accuracy": (predictions == labels).mean(),
+            "precision_macro": precision.mean(),
+            "recall_macro": recall.mean(),
+            "f1_macro": f1.mean(),
+        }
+        for i, p, r, f in zip(ids, precision, recall, f1):
+            metrics |= {
+                f"precision_{id2label[i]}": p,
+                f"recall_{id2label[i]}": r,
+                f"f1_{id2label[i]}": f,
+            }
         return metrics
 
     return compute_metrics

@@ -103,6 +103,9 @@ VLM's labels, so new photos can be sorted without running the VLM:
 - **Results.** The best checkpoint is scored on the test split, writing
   `test_results.json` and `test_per_label.json` (per-label scores and a
   confusion matrix) to the output directory.
+- **Weights & Biases.** Runs log to the `inat-vit-classifier` project unless
+  `--no-wandb` is passed: training loss, overall and per-label validation
+  scores, and a test summary with a per-label table and confusion matrix.
 - **Publishing.** `--push-to <repo>` uploads the model and its image processor
   once training finishes, with `--card` supplying the model card. The Hub login
   is checked before training starts.
