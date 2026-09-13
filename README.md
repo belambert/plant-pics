@@ -84,6 +84,12 @@ dataset cards use.
 
         uv run plant-train-classifier --output-dir models/vit-inat-classifier
 
+  It holds out a stratified 20% test split and writes its scores to
+  `test_results.json` and `test_per_label.json` (per-label scores and a
+  confusion matrix) in the output directory. `--push-to <repo>` uploads the
+  best checkpoint to the Hub once training finishes, with `--card` supplying
+  the model card.
+
 ## Prompts
 
 `prompts/` holds the VLM prompts the annotation step runs, copied out of

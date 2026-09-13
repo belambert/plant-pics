@@ -1,3 +1,5 @@
+import json
+import os
 from collections import Counter
 from functools import partial
 from pathlib import Path
@@ -7,9 +9,10 @@ import torch
 import typer
 import wandb
 from datasets import load_dataset
+from huggingface_hub import HfApi, ModelCard
 from rich.console import Console
 from rich.table import Table
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 from torchvision.transforms import (
     CenterCrop,
     Compose,
@@ -95,8 +98,27 @@ def main(
         "--min-class-size",
         help="Drop classes with fewer examples than this",
     ),
+    push_to: str | None = typer.Option(
+        None,
+        "--push-to",
+        help="Model repo to upload the best model to after training",
+    ),
+    card: Path | None = typer.Option(
+        None,
+        "--card",
+        help="Model card to upload as the README (requires --push-to)",
+    ),
+    private: bool = typer.Option(
+        False, "--private", help="Create the model repo as private"
+    ),
 ):
     """Fine-tune a Vision Transformer on a VLM-labelled iNaturalist photo dataset."""
+    if card and not push_to:
+        raise typer.BadParameter("--card requires --push-to")
+    if push_to:
+        # fail before hours of training, not after
+        print(f"Will push to {push_to} as {HfApi().whoami()['name']}")
+
     train_vit_classifier(
         dataset=dataset,
         output_dir=output_dir,
@@ -107,6 +129,9 @@ def main(
         use_wandb=not no_wandb,
         limit=limit,
         min_class_size=min_class_size,
+        push_to=push_to,
+        card=card,
+        private=private,
     )
 
 
@@ -120,6 +145,9 @@ def train_vit_classifier(
     use_wandb: bool = True,
     limit: int | None = None,
     min_class_size: int = MIN_CLASS_SIZE,
+    push_to: str | None = None,
+    card: Path | None = None,
+    private: bool = False,
 ):
     """
     Train a Vision Transformer image classifier on iNaturalist data.
@@ -134,6 +162,9 @@ def train_vit_classifier(
         use_wandb: Whether to use Weights & Biases for logging
         limit: Limit total dataset size before splitting (for quick testing)
         min_class_size: Drop classes with fewer examples than this
+        push_to: Model repo to upload the best model to, if any
+        card: Model card to upload as the repo README
+        private: Whether to create the model repo as private
     """
     # Initialize Weights & Biases
     if use_wandb:
@@ -242,8 +273,8 @@ def train_vit_classifier(
     use_mps = torch.backends.mps.is_available()
     use_cuda = torch.cuda.is_available()
 
-    # Configure data loading workers based on device
-    num_workers = 0 if use_mps else 4
+    # decoding and cropping full-size JPEGs is the bottleneck, so use most cores
+    num_workers = 0 if use_mps else max(1, min(16, (os.cpu_count() or 1) - 2))
 
     # Enable mixed precision training on CUDA
     if use_cuda:
@@ -262,6 +293,8 @@ def train_vit_classifier(
         eval_steps=0.05,  # Evaluate every 5% of training
         save_strategy="steps",
         save_steps=0.05,  # Save every 5% of training
+        # keeps the best checkpoint plus the latest one to resume from
+        save_total_limit=2,
         learning_rate=learning_rate,
         num_train_epochs=num_epochs,
         logging_steps=100,
@@ -312,7 +345,11 @@ def train_vit_classifier(
 
     # Evaluate on test set (held-out evaluation)
     print("Evaluating on test set...")
-    test_results = trainer.evaluate(splits["test"])
+    # predict rather than evaluate, so the per-label scores reuse the same pass
+    test_pred = trainer.predict(splits["test"], metric_key_prefix="test")
+    test_results = test_pred.metrics
+    trainer.save_metrics("test", test_results)
+    save_per_label_scores(test_pred, id2label, output_path / "test_per_label.json")
 
     # Print training summary
     print("\n" + "=" * 60)
@@ -321,10 +358,18 @@ def train_vit_classifier(
     print(f"  Final training loss: {train_result.metrics['train_loss']:.4f}")
     print(f"  Best validation accuracy: {val_results['eval_accuracy']:.4f}")
     print(f"  Best validation macro F1: {val_results['eval_f1_macro']:.4f}")
-    print(f"  Final test accuracy: {test_results['eval_accuracy']:.4f}")
-    print(f"  Final test macro F1: {test_results['eval_f1_macro']:.4f}")
+    print(f"  Final test accuracy: {test_results['test_accuracy']:.4f}")
+    print(f"  Final test macro F1: {test_results['test_f1_macro']:.4f}")
     print(f"  Model saved to: {output_dir}")
     print("=" * 60)
+
+    if push_to:
+        # trainer.model is the best checkpoint, reloaded by load_best_model_at_end
+        trainer.model.push_to_hub(push_to, private=private)
+        image_processor.push_to_hub(push_to, private=private)
+        if card:
+            ModelCard(card.read_text()).push_to_hub(push_to)
+        print(f"Pushed model to https://huggingface.co/{push_to}")
 
     # Finish wandb run
     if use_wandb:
@@ -408,6 +453,54 @@ def print_class_distribution(splits, id2label):
     )
 
     console.print(table)
+
+
+def save_per_label_scores(pred, id2label, path: Path):
+    """Print and save per-label precision/recall/F1 and the confusion matrix."""
+    y_true, y_pred = pred.label_ids, np.argmax(pred.predictions, axis=1)
+    ids = sorted(id2label)
+    precision, recall, f1, support = precision_recall_fscore_support(
+        y_true, y_pred, labels=ids, zero_division=0
+    )
+
+    scores = {
+        id2label[i]: {
+            "precision": float(p),
+            "recall": float(r),
+            "f1": float(f),
+            "support": int(s),
+        }
+        for i, p, r, f, s in zip(ids, precision, recall, f1, support)
+    }
+    matrix = confusion_matrix(y_true, y_pred, labels=ids)
+    path.write_text(
+        json.dumps(
+            {
+                "labels": scores,
+                # rows are true labels, columns predictions, in this order
+                "confusion_matrix": {
+                    "labels": [id2label[i] for i in ids],
+                    "counts": matrix.tolist(),
+                },
+            },
+            indent=2,
+        )
+    )
+
+    table = Table(title="\nTest Scores by Label", header_style="bold magenta")
+    table.add_column("Label", style="cyan")
+    for col in ["Precision", "Recall", "F1", "Support"]:
+        table.add_column(col, justify="right")
+    for label, s in scores.items():
+        table.add_row(
+            label,
+            f"{s['precision']:.3f}",
+            f"{s['recall']:.3f}",
+            f"{s['f1']:.3f}",
+            f"{s['support']:,}",
+        )
+    Console().print(table)
+    print(f"Saved per-label scores to {path}")
 
 
 def create_transforms(image_processor):
