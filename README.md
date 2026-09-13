@@ -1,8 +1,14 @@
 # plant-pics
 
 Builds image datasets of plants from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
-archive. The filter defaults to a New England bounding box, but nothing in the
-pipeline is region-specific.
+archive. It filters the archive's metadata down to plant photos from one
+region, downloads the images, labels them with a vision-language model to
+separate photos of plants in nature from the rest, and publishes the results
+to the Hugging Face Hub. A ViT classifier can then be trained on the labelled
+photos.
+
+The filter defaults to a New England bounding box, but nothing in the pipeline
+is region-specific.
 
 ## Pipeline
 
@@ -94,21 +100,17 @@ both on `src/` for pushes and pull requests against `main`:
     uv run black src/
     uv run isort src/
 
-## TODO
+## Notes
 
-- Add the capability to create a subset dataset for experimentation.
-
-# Notes
-
-## Archive Size
+### Archive Size
 
 As of 1/1/2026:
 
-| File               | Rows        |
-| ------------------ | ----------- |
-| taxa.csv.gz        | 1,615,611   |
-| observations.csv.gz| 226,862,366 |
-| photos.csv.gz      | 401,313,288 |
+| File                | Rows        |
+| ------------------- | ----------- |
+| taxa.csv.gz         | 1,615,611   |
+| observations.csv.gz | 226,862,366 |
+| photos.csv.gz       | 401,313,288 |
 
 416,341 of the taxa rows are plants.
 
@@ -116,7 +118,7 @@ Peek at the raw data without decompressing:
 
     gzcat taxa.csv.gz | less
 
-## Plant Taxonomy
+### Plant Taxonomy
 
 Taxon 48460 is the root of the tree and 47126 is the Plantae kingdom, so every
 plant's ancestry string starts with `48460/47126/`:
