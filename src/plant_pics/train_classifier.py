@@ -110,85 +110,6 @@ def main(
     )
 
 
-def get_device():
-    """Detect which device (cuda/mps/cpu) is being used."""
-    if torch.cuda.is_available():
-        return "cuda"
-    elif torch.backends.mps.is_available():
-        return "mps"
-    else:
-        return "cpu"
-
-
-def print_model_parameters(model):
-    """Print the number of parameters in the model."""
-    total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-    print(f"\nModel Parameters:")
-    print(f"  Total parameters: {total_params:,}")
-    print(f"  Trainable parameters: {trainable_params:,}")
-    print(f"  Non-trainable parameters: {total_params - trainable_params:,}")
-
-
-def drop_rare_classes(data, min_class_size: int):
-    """Drop rows whose class has fewer than `min_class_size` examples."""
-    counts = Counter(data[LABEL_COLUMN])
-    keep = {cls for cls, n in counts.items() if n >= min_class_size}
-
-    dropped = {cls: n for cls, n in counts.items() if cls not in keep}
-    if not dropped:
-        return data
-
-    print(f"\nDropping classes with fewer than {min_class_size} examples:")
-    for cls, n in sorted(dropped.items(), key=lambda kv: -kv[1]):
-        print(f"  {cls}: {n}")
-
-    # filter on the label alone so the images are never decoded
-    return data.filter(
-        lambda col: [cls in keep for cls in col],
-        batched=True,
-        input_columns=LABEL_COLUMN,
-    )
-
-
-def print_class_distribution(splits, id2label):
-    """Print table showing class distribution across train/val/test splits."""
-    console = Console()
-    table = Table(
-        title="\nClass Distribution", show_header=True, header_style="bold magenta"
-    )
-    table.add_column("Class", style="cyan")
-    table.add_column("Train", justify="right", style="green")
-    table.add_column("Val", justify="right", style="yellow")
-    table.add_column("Test", justify="right", style="blue")
-    table.add_column("Total", justify="right", style="bold")
-
-    train_counts = Counter(splits["train"][LABEL_COLUMN])
-    val_counts = Counter(splits["val"][LABEL_COLUMN])
-    test_counts = Counter(splits["test"][LABEL_COLUMN])
-
-    for id_, label in sorted(id2label.items(), key=lambda kv: kv[1]):
-        t, v, te = (
-            train_counts.get(id_, 0),
-            val_counts.get(id_, 0),
-            test_counts.get(id_, 0),
-        )
-        table.add_row(label, str(t), str(v), str(te), str(t + v + te))
-
-    table.add_section()
-    table.add_row(
-        "TOTAL",
-        str(len(splits["train"])),
-        str(len(splits["val"])),
-        str(len(splits["test"])),
-        str(len(splits["train"]) + len(splits["val"]) + len(splits["test"])),
-        style="bold",
-    )
-
-    console.print(table)
-
-
 def train_vit_classifier(
     dataset: str = DATASET,
     output_dir: str = "models/vit-inat-classifier",
@@ -408,6 +329,85 @@ def train_vit_classifier(
     # Finish wandb run
     if use_wandb:
         wandb.finish()
+
+
+def get_device():
+    """Detect which device (cuda/mps/cpu) is being used."""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
+
+
+def print_model_parameters(model):
+    """Print the number of parameters in the model."""
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"\nModel Parameters:")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params:,}")
+    print(f"  Non-trainable parameters: {total_params - trainable_params:,}")
+
+
+def drop_rare_classes(data, min_class_size: int):
+    """Drop rows whose class has fewer than `min_class_size` examples."""
+    counts = Counter(data[LABEL_COLUMN])
+    keep = {cls for cls, n in counts.items() if n >= min_class_size}
+
+    dropped = {cls: n for cls, n in counts.items() if cls not in keep}
+    if not dropped:
+        return data
+
+    print(f"\nDropping classes with fewer than {min_class_size} examples:")
+    for cls, n in sorted(dropped.items(), key=lambda kv: -kv[1]):
+        print(f"  {cls}: {n}")
+
+    # filter on the label alone so the images are never decoded
+    return data.filter(
+        lambda col: [cls in keep for cls in col],
+        batched=True,
+        input_columns=LABEL_COLUMN,
+    )
+
+
+def print_class_distribution(splits, id2label):
+    """Print table showing class distribution across train/val/test splits."""
+    console = Console()
+    table = Table(
+        title="\nClass Distribution", show_header=True, header_style="bold magenta"
+    )
+    table.add_column("Class", style="cyan")
+    table.add_column("Train", justify="right", style="green")
+    table.add_column("Val", justify="right", style="yellow")
+    table.add_column("Test", justify="right", style="blue")
+    table.add_column("Total", justify="right", style="bold")
+
+    train_counts = Counter(splits["train"][LABEL_COLUMN])
+    val_counts = Counter(splits["val"][LABEL_COLUMN])
+    test_counts = Counter(splits["test"][LABEL_COLUMN])
+
+    for id_, label in sorted(id2label.items(), key=lambda kv: kv[1]):
+        t, v, te = (
+            train_counts.get(id_, 0),
+            val_counts.get(id_, 0),
+            test_counts.get(id_, 0),
+        )
+        table.add_row(label, str(t), str(v), str(te), str(t + v + te))
+
+    table.add_section()
+    table.add_row(
+        "TOTAL",
+        str(len(splits["train"])),
+        str(len(splits["val"])),
+        str(len(splits["test"])),
+        str(len(splits["train"]) + len(splits["val"]) + len(splits["test"])),
+        style="bold",
+    )
+
+    console.print(table)
 
 
 def create_transforms(image_processor):

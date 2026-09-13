@@ -23,29 +23,25 @@ class ImageSize(str, Enum):
     square = "square"  # exactly 75x75px, cropped to be square
 
 
-def download_photo(
-    photo_id: int, extension: str, size: ImageSize, output_dir: Path
-) -> tuple[int, bool, str]:
+app = typer.Typer()
+
+
+@app.command()
+def main(
+    input_file: str = typer.Argument(
+        ..., help="Path to the input TSV file (e.g., data/plant_pics.tsv)"
+    ),
+    size: ImageSize = typer.Option(
+        ImageSize.large, "--size", "-s", help="Image size to download"
+    ),
+    workers: int = typer.Option(
+        50, "--workers", "-w", help="Number of parallel download workers"
+    ),
+):
     """
-    Download a single photo from S3.
-
-    Args:
-        photo_id: The photo ID
-        extension: The file extension (e.g., 'jpg')
-        size: The image size to download
-        output_dir: Directory to save the file
-
-    Returns:
-        Tuple of (photo_id, success, error_message)
+    Download iNaturalist photos from S3 at the specified size.
     """
-    key = f"photos/{photo_id}/{size.value}.{extension}"
-    output_file = output_dir / f"{photo_id}.{extension}"
-
-    try:
-        _s3.download_file("inaturalist-open-data", key, str(output_file))
-        return (photo_id, True, "")
-    except Exception as e:
-        return (photo_id, False, str(e))
+    download_photos(input_file, size, max_workers=workers)
 
 
 def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
@@ -105,25 +101,29 @@ def download_photos(input_file: str, size: ImageSize, max_workers: int = 50):
         print(f"Failed IDs: {failed_ids[:10]}{'...' if len(failed_ids) > 10 else ''}")
 
 
-app = typer.Typer()
-
-
-@app.command()
-def main(
-    input_file: str = typer.Argument(
-        ..., help="Path to the input TSV file (e.g., data/plant_pics.tsv)"
-    ),
-    size: ImageSize = typer.Option(
-        ImageSize.large, "--size", "-s", help="Image size to download"
-    ),
-    workers: int = typer.Option(
-        50, "--workers", "-w", help="Number of parallel download workers"
-    ),
-):
+def download_photo(
+    photo_id: int, extension: str, size: ImageSize, output_dir: Path
+) -> tuple[int, bool, str]:
     """
-    Download iNaturalist photos from S3 at the specified size.
+    Download a single photo from S3.
+
+    Args:
+        photo_id: The photo ID
+        extension: The file extension (e.g., 'jpg')
+        size: The image size to download
+        output_dir: Directory to save the file
+
+    Returns:
+        Tuple of (photo_id, success, error_message)
     """
-    download_photos(input_file, size, max_workers=workers)
+    key = f"photos/{photo_id}/{size.value}.{extension}"
+    output_file = output_dir / f"{photo_id}.{extension}"
+
+    try:
+        _s3.download_file("inaturalist-open-data", key, str(output_file))
+        return (photo_id, True, "")
+    except Exception as e:
+        return (photo_id, False, str(e))
 
 
 if __name__ == "__main__":
