@@ -14,11 +14,9 @@ from rich.console import Console
 from rich.table import Table
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 from torchvision.transforms import (
-    CenterCrop,
     Compose,
     Normalize,
     RandomHorizontalFlip,
-    RandomResizedCrop,
     Resize,
     ToTensor,
 )
@@ -513,34 +511,18 @@ def create_transforms(image_processor):
     Returns:
         Tuple of (train_transforms, val_transforms)
     """
-    # Get the expected input size and normalization from the processor
-    size = (
-        image_processor.size["shortest_edge"]
-        if "shortest_edge" in image_processor.size
-        else (image_processor.size["height"], image_processor.size["width"])
-    )
-
+    # no cropping: the cue for a label (a ruler, a hand) is often at the edge,
+    # so squash the whole photo to the model's input size instead; this matches
+    # what ViT's and SigLIP's own processors do at inference
+    size = (image_processor.size["height"], image_processor.size["width"])
     normalize = Normalize(
         mean=image_processor.image_mean, std=image_processor.image_std
     )
 
     train_transforms = Compose(
-        [
-            RandomResizedCrop(size),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            normalize,
-        ]
+        [Resize(size), RandomHorizontalFlip(), ToTensor(), normalize]
     )
-
-    val_transforms = Compose(
-        [
-            Resize(size),
-            CenterCrop(size),
-            ToTensor(),
-            normalize,
-        ]
-    )
+    val_transforms = Compose([Resize(size), ToTensor(), normalize])
 
     return train_transforms, val_transforms
 

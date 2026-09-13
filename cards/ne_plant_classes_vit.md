@@ -66,8 +66,9 @@ learns to agree with Qwen, mistakes included.
 
 - Shuffled with seed 42, then split 60% train / 20% validation / 20% test,
   stratified by label.
-- Images augmented with a random resized crop and horizontal flip for training;
-  resized and center-cropped for evaluation.
+- Whole images resized to 224x224 with no cropping, since the cue for a label
+  (a ruler, a hand) is often near the edge of the frame. Training adds a
+  random horizontal flip.
 - 10 epochs at batch size 64 and learning rate 2e-5, in bf16 mixed precision.
 - Evaluated on the validation split every 5% of training, keeping the
   checkpoint with the best macro F1. Accuracy would reward always predicting

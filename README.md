@@ -79,16 +79,47 @@ dataset cards use.
 
         uv run plant-extract-common-names data/ne_taxa.tsv -o data/common_names.tsv
 
-- **Train a ViT classifier** on a labelled Hub dataset (defaults to
-  `blambert/ne_plant_classes`), logging to Weights & Biases unless `--no-wandb`:
+- **Train a classifier** on a labelled Hub dataset (defaults to
+  `blambert/ne_plant_classes`), logging to Weights & Biases unless `--no-wandb`.
+  See [Training a Classifier](#training-a-classifier).
 
-        uv run plant-train-classifier --output-dir models/vit-inat-classifier
+## Training a Classifier
 
-  It holds out a stratified 20% test split and writes its scores to
+`plant-train-classifier` fine-tunes a pretrained image model to reproduce the
+VLM's labels, so new photos can be sorted without running the VLM:
+
+    uv run plant-train-classifier \
+        -o models/ne_plant_classes_vit --push-to blambert/ne_plant_classes_vit
+
+- **Data.** Labels with fewer than 100 examples are dropped (`--min-class-size`),
+  which removes `other`. The rest is split 60% train / 20% validation / 20%
+  test, stratified by label. `--limit` trains on a sample for a quick check.
+- **Preprocessing.** Photos are resized whole to the model's input size, never
+  cropped, because what decides a label - a ruler, a hand - is often near the
+  edge of the frame. Training adds a random horizontal flip.
+- **Checkpoints.** The validation split is scored every 5% of training and the
+  checkpoint with the best macro F1 is kept; accuracy would reward always
+  predicting `nature`. Only the best and latest checkpoints stay on disk.
+- **Results.** The best checkpoint is scored on the test split, writing
   `test_results.json` and `test_per_label.json` (per-label scores and a
-  confusion matrix) in the output directory. `--push-to <repo>` uploads the
-  best checkpoint to the Hub once training finishes, with `--card` supplying
-  the model card.
+  confusion matrix) to the output directory.
+- **Publishing.** `--push-to <repo>` uploads the model and its image processor
+  once training finishes, with `--card` supplying the model card. The Hub login
+  is checked before training starts.
+
+Pick the base model with `-m`. The script supports models whose image processor
+resizes to a fixed height and width, which covers the ViT and SigLIP families:
+
+| Model                                | Params | Notes                                                         |
+| ------------------------------------ | ------ | ------------------------------------------------------------- |
+| `google/siglip2-base-patch16-224`    | 93M    | Recommended; image-text pretraining knows hands, rulers, labs |
+| `google/siglip2-so400m-patch14-224`  | 400M   | Stronger SigLIP 2, several times slower to train              |
+| `google/vit-base-patch16-224-in21k`  | 86M    | The default; a solid, well-understood baseline                |
+| `google/vit-large-patch16-224-in21k` | 304M   | Larger ViT, if the base model underfits                       |
+
+Labels come from the VLM rather than people, so every model is capped by how
+often the VLM was right; the base model matters most for the small `manmade`
+and `magnified` classes.
 
 ## Prompts
 
