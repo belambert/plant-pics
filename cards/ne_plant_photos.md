@@ -10,6 +10,8 @@ size_categories:
 
 # NE Plant Photos
 
+![Twelve photos from the dataset, captioned with their species](https://raw.githubusercontent.com/belambert/plant-pics/main/images/ne_plant_photos.jpg)
+
 Plant photographs from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
 archive, filtered to a New England bounding box (latitude 41 to 48, longitude
 -74 to -67), each labelled with the species it records and where it was
@@ -24,6 +26,8 @@ been checked against a hand-labelled sample.
 
 114,075 images in a single `train` split, covering the species in the source
 archive at up to 100 photos per species.
+
+![Density map of where the photos were taken across New England](https://raw.githubusercontent.com/belambert/plant-pics/main/images/ne_map.png)
 
 ## Columns
 
@@ -46,6 +50,7 @@ The photographs keep whichever license each iNaturalist observer chose, so the
 collection is not under a single license and most of it is non-commercial:
 CC-BY-NC, CC-BY, CC0, CC-BY-NC-SA and CC-BY-SA, with the exact terms per photo
 in the `license` column. Everything but the CC0 portion requires attribution.
+The sample photos on this card are all CC0.
 
 ## Provenance
 

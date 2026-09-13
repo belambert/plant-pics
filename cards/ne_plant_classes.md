@@ -32,6 +32,8 @@ a hand-labelled sample.
 The prompt sorts each photo into one of five classes, falling back to `other`
 when none of the first four fit.
 
+![Three example photos for each label](https://raw.githubusercontent.com/belambert/plant-pics/main/images/ne_plant_classes.jpg)
+
 | label     |   count |  share |
 |-----------|--------:|-------:|
 | nature    | 114,054 |  75.1% |
@@ -55,7 +57,7 @@ collection is not under a single license and most of it is non-commercial.
 
 Everything but the CC0 portion requires attribution. Observer and photo
 metadata live in the iNaturalist open data archive, joinable on the photo id in
-`file_name`.
+`file_name`. The sample photos on this card are all CC0.
 
 ## Provenance
 

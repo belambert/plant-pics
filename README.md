@@ -1,5 +1,7 @@
 # plant-pics
 
+![Twelve plant photos from the New England dataset](images/banner.jpg)
+
 Builds image datasets of plants from the [iNaturalist open data](https://github.com/inaturalist/inaturalist-open-data)
 archive. It filters the archive's metadata down to plant photos from one
 region, downloads the images, labels them with a vision-language model to
@@ -14,6 +16,9 @@ is region-specific. The New England run produced two datasets:
   every photo, labelled nature / human / magnified / manmade / other
 - [blambert/ne_plant_photos](https://huggingface.co/datasets/blambert/ne_plant_photos) -
   the `nature` photos, with taxon and observation metadata
+
+The photos shown here are all CC0. `images/` also holds the pictures the
+dataset cards use.
 
 ## Pipeline
 
