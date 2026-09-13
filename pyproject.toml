@@ -30,6 +30,8 @@ dependencies = [
 plant-filter = "plant_pics.filter:app"
 plant-download = "plant_pics.download:app"
 plant-build-dataset = "plant_pics.build_dataset:app"
+plant-extract-common-names = "plant_pics.extract_common_names:app"
+plant-train-classifier = "plant_pics.train_classifier:app"
 
 [build-system]
 requires = ["uv_build>=0.9.3,<0.10.0"]
