@@ -19,7 +19,7 @@ Labels come from [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B);
 they are model output, not human annotation, and have not been checked against
 a hand-labelled sample.
 
-151,778 images in a single `train` split.
+151,945 images in a single `train` split.
 
 ## Columns
 
@@ -36,9 +36,9 @@ when none of the first four fit.
 
 | label     |   count |  share |
 |-----------|--------:|-------:|
-| nature    | 114,054 |  75.1% |
-| human     |  33,675 |  22.2% |
-| manmade   |   2,308 |   1.5% |
+| nature    | 114,192 |  75.2% |
+| human     |  33,702 |  22.2% |
+| manmade   |   2,310 |   1.5% |
 | magnified |   1,715 |   1.1% |
 | other     |      26 |  <0.1% |
 
@@ -49,10 +49,10 @@ collection is not under a single license and most of it is non-commercial.
 
 | license     |   count |  share |
 |-------------|--------:|-------:|
-| CC-BY-NC    | 114,506 |  75.4% |
-| CC-BY       |  22,860 |  15.1% |
-| CC0         |  10,073 |   6.6% |
-| CC-BY-NC-SA |   3,288 |   2.2% |
+| CC-BY-NC    | 114,639 |  75.4% |
+| CC-BY       |  22,883 |  15.1% |
+| CC0         |  10,080 |   6.6% |
+| CC-BY-NC-SA |   3,292 |   2.2% |
 | CC-BY-SA    |   1,051 |   0.7% |
 
 Everything but the CC0 portion requires attribution. Observer and photo
