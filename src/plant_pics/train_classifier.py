@@ -41,6 +41,8 @@ DATASET = "blambert/ne_plant_classes"
 LABEL_COLUMN = "output"
 # classes rarer than this can't be learned or measured, so drop them
 MIN_CLASS_SIZE = 100
+# longest side of the misclassified test photos logged to W&B
+THUMBNAIL_SIZE = 256
 
 app = typer.Typer()
 
@@ -354,7 +356,7 @@ def train_vit_classifier(
     trainer.save_metrics("test", test_results)
     save_per_label_scores(test_pred, id2label, output_path / "test_per_label.json")
     if use_wandb:
-        log_test_to_wandb(test_pred, id2label)
+        log_test_to_wandb(test_pred, id2label, splits["test"])
 
     # Print training summary
     print("\n" + "=" * 60)
@@ -508,8 +510,8 @@ def save_per_label_scores(pred, id2label, path: Path):
     print(f"Saved per-label scores to {path}")
 
 
-def log_test_to_wandb(pred, id2label):
-    """Record test scores in the run summary, with a per-label table and confusion matrix."""
+def log_test_to_wandb(pred, id2label, test_data):
+    """Record test scores in the run summary, with per-label, confusion, and error tables."""
     # predict() doesn't log, so without this the test split never reaches W&B
     wandb.summary.update(pred.metrics)
 
@@ -529,8 +531,40 @@ def log_test_to_wandb(pred, id2label):
                 preds=np.argmax(pred.predictions, axis=1).tolist(),
                 class_names=names,
             ),
+            "test/errors": error_table(pred, id2label, test_data),
         }
     )
+
+
+def error_table(pred, id2label, data):
+    """Build a W&B table of every test mistake, most confident first."""
+    logits = pred.predictions - pred.predictions.max(axis=1, keepdims=True)
+    probs = np.exp(logits) / np.exp(logits).sum(axis=1, keepdims=True)
+    preds, conf, true = probs.argmax(axis=1), probs.max(axis=1), pred.label_ids
+
+    # confident mistakes are the most informative, often a wrong VLM label
+    wrong = np.flatnonzero(preds != true)
+    keep = wrong[np.argsort(-conf[wrong])].tolist()
+
+    table = wandb.Table(
+        columns=["image", "true", "predicted", "confidence", "file_name", "inaturalist"]
+    )
+    # predict() keeps dataset order, so row i lines up with prediction i;
+    # drop the training transform to get the original photos back
+    for i, row in zip(keep, data.with_format(None).select(keep)):
+        image = row["image"].convert("RGB")
+        image.thumbnail((THUMBNAIL_SIZE, THUMBNAIL_SIZE))
+        photo_id = row["file_name"].split(".")[0]
+        table.add_data(
+            wandb.Image(image),
+            id2label[int(true[i])],
+            id2label[int(preds[i])],
+            float(conf[i]),
+            row["file_name"],
+            f"https://www.inaturalist.org/photos/{photo_id}",
+        )
+    print(f"Logged {len(keep)} test errors to W&B")
+    return table
 
 
 def create_transforms(image_processor):
