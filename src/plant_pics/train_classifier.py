@@ -66,19 +66,21 @@ def main(
         help="Pretrained ViT model to use",
     ),
     epochs: int = typer.Option(
-        10,
+        # the first full run peaked at epoch 3 of 10
+        4,
         "--epochs",
         "-e",
         help="Number of training epochs",
     ),
     batch_size: int = typer.Option(
-        64,
+        256,
         "--batch-size",
         "-b",
         help="Batch size for training",
     ),
     learning_rate: float = typer.Option(
-        2e-5,
+        # 2e-5 at batch size 64, scaled with the batch size
+        8e-5,
         "--learning-rate",
         "-lr",
         help="Learning rate for optimizer",
@@ -87,6 +89,11 @@ def main(
         False,
         "--no-wandb",
         help="Disable Weights & Biases logging",
+    ),
+    no_compile: bool = typer.Option(
+        False,
+        "--no-compile",
+        help="Skip torch.compile on CUDA, e.g. if it fails to build",
     ),
     limit: int | None = typer.Option(
         None,
@@ -127,6 +134,7 @@ def main(
         batch_size=batch_size,
         learning_rate=learning_rate,
         use_wandb=not no_wandb,
+        compile=not no_compile,
         limit=limit,
         min_class_size=min_class_size,
         push_to=push_to,
@@ -139,10 +147,11 @@ def train_vit_classifier(
     dataset: str = DATASET,
     output_dir: str = "models/vit-inat-classifier",
     model_name: str = "google/vit-base-patch16-224",
-    num_epochs: int = 10,
-    batch_size: int = 32,
-    learning_rate: float = 2e-5,
+    num_epochs: int = 4,
+    batch_size: int = 256,
+    learning_rate: float = 8e-5,
     use_wandb: bool = True,
+    compile: bool = True,
     limit: int | None = None,
     min_class_size: int = MIN_CLASS_SIZE,
     push_to: str | None = None,
@@ -160,6 +169,7 @@ def train_vit_classifier(
         batch_size: Batch size for training
         learning_rate: Learning rate for optimizer
         use_wandb: Whether to use Weights & Biases for logging
+        compile: Whether to torch.compile the model when training on CUDA
         limit: Limit total dataset size before splitting (for quick testing)
         min_class_size: Drop classes with fewer examples than this
         push_to: Model repo to upload the best model to, if any
@@ -294,15 +304,14 @@ def train_vit_classifier(
         output_dir=output_dir,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
-        eval_strategy="steps",
-        eval_steps=0.05,  # Evaluate every 5% of training
-        save_strategy="steps",
-        save_steps=0.05,  # Save every 5% of training
+        # scoring the validation split is costly, so do it once per epoch
+        eval_strategy="epoch",
+        save_strategy="epoch",
         # keeps the best checkpoint plus the latest one to resume from
         save_total_limit=2,
         learning_rate=learning_rate,
         num_train_epochs=num_epochs,
-        logging_steps=100,
+        logging_steps=20,
         load_best_model_at_end=True,
         # macro F1, not accuracy: always predicting `nature` would score 75%
         metric_for_best_model="f1_macro",
@@ -313,6 +322,8 @@ def train_vit_classifier(
         dataloader_pin_memory=False if use_mps else True,
         fp16=fp16,
         bf16=bf16,
+        # compiling is only reliable on CUDA
+        torch_compile=compile and use_cuda,
     )
 
     # Initialize trainer
@@ -332,6 +343,7 @@ def train_vit_classifier(
     print(f"  Learning rate: {learning_rate}")
     print(f"  Device: {get_device()}")
     print(f"  Data workers: {num_workers}")
+    print(f"  torch.compile: {training_args.torch_compile}")
     if fp16:
         print(f"  Mixed precision: fp16")
     elif bf16:
