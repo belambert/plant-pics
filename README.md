@@ -97,7 +97,10 @@ VLM's labels, so new photos can be sorted without running the VLM:
 - **Preprocessing.** Photos are resized whole to the model's input size, never
   cropped, because what decides a label - a ruler, a hand - is often near the
   edge of the frame. Training adds a random horizontal flip.
-- **Checkpoints.** The validation split is scored every 5% of training and the
+- **Speed.** Defaults are 4 epochs at batch size 256 and learning rate 8e-5;
+  the first full run peaked at epoch 3 of 10. On CUDA the model is compiled
+  with `torch.compile`, which `--no-compile` skips if it fails to build.
+- **Checkpoints.** The validation split is scored once per epoch and the
   checkpoint with the best macro F1 is kept; accuracy would reward always
   predicting `nature`. Only the best and latest checkpoints stay on disk.
 - **Results.** The best checkpoint is scored on the test split, writing
