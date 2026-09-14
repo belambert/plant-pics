@@ -79,14 +79,46 @@ Training code is `train_classifier.py` in
 
 ## Results
 
-<!-- fill in from test_results.json and test_per_label.json after training -->
+Scores on the 30,384-photo test split. The best checkpoint came from epoch 3
+(step 4,278 of 14,250), with a validation macro F1 of 0.887.
+
+| metric          | score |
+|-----------------|------:|
+| accuracy        | 0.984 |
+| macro F1        | 0.902 |
+| macro precision | 0.913 |
+| macro recall    | 0.891 |
+| loss            | 0.081 |
+
+Per label:
+
+| label     | precision | recall |    F1 | support |
+|-----------|----------:|-------:|------:|--------:|
+| nature    |     0.990 |  0.991 | 0.990 |  22,839 |
+| human     |     0.982 |  0.985 | 0.984 |   6,740 |
+| manmade   |     0.744 |  0.686 | 0.714 |     462 |
+| magnified |     0.936 |  0.901 | 0.918 |     343 |
+
+Confusion matrix, with true labels as rows and predictions as columns:
+
+| true \ predicted | nature | human | manmade | magnified |
+|------------------|-------:|------:|--------:|----------:|
+| nature           | 22,629 |   103 |      87 |        20 |
+| human            |     78 | 6,642 |      20 |         0 |
+| manmade          |    129 |    15 |     317 |         1 |
+| magnified        |     30 |     2 |       2 |       309 |
+
+Most errors involve `nature`. Over a quarter of `manmade` photos (129 of 462)
+are predicted as `nature`, and `nature` photos account for 87 of the 109 false
+`manmade` predictions.
 
 ## Limitations
 
 - Test scores measure agreement with Qwen's labels on held-out photos, not
   accuracy against ground truth.
-- `manmade` and `magnified` have under 2,500 examples each, so expect them to
-  be the weakest classes.
+- `manmade` and `magnified` have under 2,500 examples each. `manmade` is by
+  far the weakest class (F1 0.714), and roughly 3 in 10 manmade photos slip
+  through as `nature`.
 - All training photos come from New England iNaturalist observations; photos
   from other regions, sources, or camera setups may look different enough to
   hurt accuracy.
