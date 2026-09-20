@@ -42,6 +42,37 @@ when none of the first four fit.
 | magnified |   1,715 |   1.1% |
 | other     |      26 |  <0.1% |
 
+## Label Quality
+
+The labels are model output and some of them are wrong. A ViT classifier
+trained on this dataset
+([blambert/ne_plant_classes_vit](https://huggingface.co/blambert/ne_plant_classes_vit))
+disagrees with the label on 1.6% of held-out photos, and a review of 160 of
+those disagreements suggested the label, not the classifier, was wrong about
+two thirds of the time. That puts **roughly 1% of the dataset, on the order of
+1,500 photos, under a wrong label**, and that is a lower bound: the classifier
+learned the labeller's habits, so mistakes the two share are invisible to it.
+
+The errors are concentrated:
+
+| label     | disagreement rate | note                                                     |
+|-----------|------------------:|----------------------------------------------------------|
+| nature    |              0.9% | mostly photos with a hand or a ruler in frame            |
+| human     |              1.5% | often no hand visible at all                             |
+| magnified |              9.9% |                                                          |
+| manmade   |             31.4% | roughly 1 in 6 `manmade` labels looks wrong              |
+
+`manmade` is the least reliable label, partly because the prompt never settled
+what it means: a plant growing in a sidewalk crack or beside a road is
+sometimes `manmade` and sometimes `nature`.
+
+This is still good enough for some purposes. Separating `nature` from `human`
+is reliable enough for coarse filtering, which is what
+[blambert/ne_plant_photos](https://huggingface.co/datasets/blambert/ne_plant_photos)
+does. Treat the small classes, and any per-label accuracy measured against
+these labels, with more caution, and hand-label a sample before trusting them
+as ground truth.
+
 ## Licensing
 
 The photographs keep whichever license each iNaturalist observer chose, so the
