@@ -112,6 +112,28 @@ Most errors involve `nature`. Over a quarter of `manmade` photos (129 of 462)
 are predicted as `nature`, and `nature` photos account for 87 of the 109 false
 `manmade` predictions.
 
+## Label Noise
+
+The scores above measure agreement with Qwen's labels, and those labels are
+themselves often wrong. Reviewing 160 of the 487 test disagreements suggested
+that in about two thirds of them the model was right and the label was wrong -
+fingers plainly holding a plant labelled `nature`, a ruler in frame labelled
+`nature`, a plain field photo labelled `human`. So:
+
+- **True accuracy is probably higher than 98.4%,** because some counted errors
+  are correct predictions scored against a wrong label.
+- **The `manmade` F1 of 0.714 is the least trustworthy number here.** 31% of
+  `manmade`-labelled test photos are disputed, and the label itself is fuzzy:
+  a plant in a sidewalk crack is sometimes `manmade` and sometimes `nature`.
+- **A hand-labelled test set** is needed to measure real accuracy; none exists
+  yet.
+
+This is still good enough for some purposes. For coarse filtering - keeping
+field photographs and dropping shots of hands, rulers and microscope views -
+it agrees with the labeller on 98% of photos and is often right where it
+disagrees. It is not good enough when a specific label, especially `manmade`,
+has to be correct on a given photo.
+
 ## Limitations
 
 - Test scores measure agreement with Qwen's labels on held-out photos, not

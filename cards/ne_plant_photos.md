@@ -29,6 +29,25 @@ archive at up to 100 photos per species.
 
 ![Density map of where the photos were taken across New England](https://raw.githubusercontent.com/belambert/plant-pics/main/images/ne_map.png)
 
+## Label Quality
+
+The `nature` filter is model output, so a few photos here are not field shots
+at all: a hand holding a specimen, a ruler beside a plant, an indoor macro
+view. A ViT classifier trained on the same labels
+([blambert/ne_plant_classes_vit](https://huggingface.co/blambert/ne_plant_classes_vit))
+disputes about 0.9% of `nature` labels, and reviewing a sample of those
+disagreements suggested the label was wrong about two thirds of the time -
+**on the order of 700 photos here, under 1%**. Photos that belong here were
+dropped for the same reason, in roughly similar numbers.
+
+Every species label, on the other hand, comes from the iNaturalist archive's
+research-grade observations, not from a model.
+
+This is good enough for most uses of a plant photo collection, where a fraction
+of a percent of odd images does not change much. If your use needs every image
+to be a field photograph, filter again with a model of your own, or hand-check
+the sample you use.
+
 ## Columns
 
 - `image` - the photograph, embedded in the dataset
